@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { env } from "./env.js";
+import { env } from "./config/env.js";
 import { routes } from "./routes.js";
 
 const app = Fastify({

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { sql } from "kysely";
-import { db } from "../database.js";
+import { db } from "../database/database.js";
 
 export const healthRoutes: FastifyPluginAsync = async (app) => {
   app.get("/", async () => {

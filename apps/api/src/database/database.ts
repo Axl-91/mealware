@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { Kysely, PostgresDialect } from "kysely";
-import { env } from "./env.js";
+import { env } from "../config/env.js";
 
 interface Database {}
 
