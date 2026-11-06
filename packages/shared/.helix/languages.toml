@@ -1,0 +1,20 @@
+[language-server.vtsls]
+command = "vtsls"
+args = ["--stdio"]
+
+[language-server.vtsls.config.typescript]
+inlayHints = { enumMemberValues = { enabled = true }, functionLikeReturnTypes = { enabled = true }, parameterNames = { enabled = "all" }, parameterTypes = { enabled = true }, propertyDeclarationTypes = { enabled = true }, variableTypes = { enabled = true } }
+
+[language-server.vtsls.config.vtsls]
+autoUseWorkspaceTsdk = true
+experimental = { completion = { enableServerSideFuzzyMatch = true } }
+
+[[language]]
+name = "typescript"
+scope = "source.ts"
+injection-regex = "(ts|typescript)"
+language-id = "typescript"
+file-types = ["ts", "mts", "cts"]
+language-servers = ["vtsls"]
+formatter = { command = "prettier", args = ["--parser", "typescript"] }
+auto-format = true

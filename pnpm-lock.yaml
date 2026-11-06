@@ -168,6 +168,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@mealware/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       dotenv:
         specifier: ^18.0.9
         version: 18.0.9
@@ -200,7 +203,21 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
-  apps/web: {}
+  apps/web:
+    dependencies:
+      '@mealware/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: ^4.0.0
+        version: 4.6.7
+    devDependencies:
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
 
 packages:
 
