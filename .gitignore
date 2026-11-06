@@ -24,3 +24,5 @@ coverage/
 
 # Package manager
 .pnpm-store/
+
+.helix/
