@@ -44,11 +44,12 @@ export const up: Migration["up"] = async (db) => {
    * email         VARCHAR(255) NOT NULL
    * password_hash VARCHAR(255) NOT NULL
    * role          user_role    NOT NULL
+   * is_active     BOOLEAN      NOT NULL, DEFAULT true
    * created_at    TIMESTAMPTZ  NOT NULL, DEFAULT now()
    * updated_at    TIMESTAMPTZ  NOT NULL, DEFAULT now()
    *
    * CONSTRAINTS
-   * - UNIQUE (restaurant_id, email)
+   * - UNIQUE (email)
    */
   await db.schema
     .createTable("users")
@@ -60,6 +61,9 @@ export const up: Migration["up"] = async (db) => {
     .addColumn("email", "varchar(255)", (column) => column.notNull())
     .addColumn("password_hash", "varchar(255)", (column) => column.notNull())
     .addColumn("role", sql`user_role`, (column) => column.notNull())
+    .addColumn("is_active", "boolean", (column) =>
+      column.notNull().defaultTo(true),
+    )
     .addColumn("created_at", "timestamptz", (column) =>
       column.notNull().defaultTo(sql`now()`),
     )
@@ -72,10 +76,7 @@ export const up: Migration["up"] = async (db) => {
       "restaurants",
       ["id"],
     )
-    .addUniqueConstraint("users_restaurant_email_unique", [
-      "restaurant_id",
-      "email",
-    ])
+    .addUniqueConstraint("users_email_unique", ["email"])
     .execute();
 };
 

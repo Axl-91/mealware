@@ -1,18 +1,10 @@
-import { FileMigrationProvider, Migrator } from "kysely/migration";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+import { Migrator } from "kysely/migration";
 import { db } from "./database.js";
-
-const migrationFolder = fileURLToPath(new URL("./migrations", import.meta.url));
+import { createMigrationProvider } from "./migration-provider.js";
 
 const migrator = new Migrator({
   db,
-  provider: new FileMigrationProvider({
-    fs,
-    path,
-    migrationFolder,
-  }),
+  provider: createMigrationProvider(),
 });
 
 const runMigrations = async () => {
