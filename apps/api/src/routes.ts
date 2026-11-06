@@ -1,10 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
+import { healthRoutes } from "./routes/health.js";
 
 export const routes: FastifyPluginAsync = async (app) => {
-  app.get("/health", async () => {
-    return {
-      status: "ok",
-      service: "mealware-api",
-    };
+  await app.register(healthRoutes, {
+    prefix: "/health",
   });
 };
