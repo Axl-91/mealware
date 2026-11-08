@@ -1,6 +1,6 @@
-import type { CreateUserInput } from "@mealware/shared";
-import { db } from "../database/database.js";
+import type { CreateUserInput, UpdateUserInput } from "@mealware/shared";
 import { hashPassword } from "../auth/password.js";
+import * as usersRepository from "../repositories/users.repository.js";
 
 export const createUser = async (
   input: CreateUserInput,
@@ -8,46 +8,26 @@ export const createUser = async (
 ) => {
   const passwordHash = await hashPassword(input.password);
 
-  try {
-    return await db
-      .insertInto("users")
-      .values({
-        restaurant_id: restaurantId,
-        name: input.name,
-        email: input.email,
-        password_hash: passwordHash,
-        role: "EMPLOYEE",
-      })
-      .returning(["id", "name", "email", "role", "is_active", "created_at"])
-      .executeTakeFirstOrThrow();
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "23505"
-    ) {
-      return null;
-    }
-
-    throw error;
-  }
+  return usersRepository.createUser({
+    restaurantId,
+    name: input.name,
+    email: input.email,
+    passwordHash,
+  });
 };
 
 export const getUsers = async (restaurantId: string) => {
-  return db
-    .selectFrom("users")
-    .select([
-      "id",
-      "name",
-      "email",
-      "role",
-      "is_active",
-      "created_at",
-      "updated_at",
-    ])
-    .where("restaurant_id", "=", restaurantId)
-    .where("is_active", "=", true)
-    .orderBy("created_at", "desc")
-    .execute();
+  return usersRepository.getUsers(restaurantId);
+};
+
+export const getUserById = async (userId: string, restaurantId: string) => {
+  return usersRepository.getUserById(userId, restaurantId);
+};
+
+export const updateUser = async (
+  userId: string,
+  restaurantId: string,
+  input: UpdateUserInput,
+) => {
+  return usersRepository.updateUser(userId, restaurantId, input);
 };

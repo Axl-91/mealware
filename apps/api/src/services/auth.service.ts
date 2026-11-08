@@ -1,20 +1,9 @@
-import { db } from "../database/database.js";
+import type { LoginInput } from "@mealware/shared";
 import { verifyPassword } from "../auth/password.js";
+import * as authRepository from "../repositories/auth.repository.js";
 
-interface AuthenticateUserInput {
-  email: string;
-  password: string;
-}
-
-export const authenticateUser = async ({
-  email,
-  password,
-}: AuthenticateUserInput) => {
-  const user = await db
-    .selectFrom("users")
-    .select(["id", "restaurant_id", "password_hash", "role", "is_active"])
-    .where("email", "=", email)
-    .executeTakeFirst();
+export const authenticateUser = async ({ email, password }: LoginInput) => {
+  const user = await authRepository.getUserByEmail(email);
 
   if (!user || !user.is_active) {
     return null;
@@ -42,11 +31,5 @@ export const getAuthenticatedUser = async ({
   userId,
   restaurantId,
 }: GetAuthenticatedUserInput) => {
-  return db
-    .selectFrom("users")
-    .select(["id", "name", "email", "role"])
-    .where("id", "=", userId)
-    .where("restaurant_id", "=", restaurantId)
-    .where("is_active", "=", true)
-    .executeTakeFirst();
+  return authRepository.getUserById(userId, restaurantId);
 };
