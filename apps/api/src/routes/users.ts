@@ -7,6 +7,7 @@ import {
   getUsersController,
   getUserByIdController,
   updateUserController,
+  deactivateUserController,
 } from "../controllers/users.controller.js";
 
 export const usersRoutes: FastifyPluginAsync = async (app) => {
@@ -25,4 +26,11 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
 
   // PUT /users/:id - Update user
   app.put<{ Params: { id: string } }>("/:id", adminOnly, updateUserController);
+
+  // DELETE /users/:id - Deactivate user
+  app.delete<{ Params: { id: string } }>(
+    "/:id",
+    adminOnly,
+    deactivateUserController,
+  );
 };

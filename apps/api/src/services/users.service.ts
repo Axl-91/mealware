@@ -31,3 +31,7 @@ export const updateUser = async (
 ) => {
   return usersRepository.updateUser(userId, restaurantId, input);
 };
+
+export const deactivateUser = async (userId: string, restaurantId: string) => {
+  return usersRepository.deactivateUser(userId, restaurantId);
+};

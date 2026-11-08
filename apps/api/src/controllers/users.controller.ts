@@ -1,6 +1,35 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createUserSchema, updateUserSchema } from "@mealware/shared";
 import * as usersService from "../services/users.service.js";
+import { ZodError } from "zod";
+
+const validationError = (reply: FastifyReply, error: ZodError) => {
+  return reply.status(400).send({
+    error: {
+      code: "VALIDATION_ERROR",
+      message: "Invalid request data",
+      details: error.issues,
+    },
+  });
+};
+
+const userNotFound = (reply: FastifyReply) => {
+  return reply.status(404).send({
+    error: {
+      code: "USER_NOT_FOUND",
+      message: "User not found",
+    },
+  });
+};
+
+const emailAlreadyExists = (reply: FastifyReply) => {
+  return reply.status(409).send({
+    error: {
+      code: "EMAIL_ALREADY_EXISTS",
+      message: "Email already exists",
+    },
+  });
+};
 
 export const createUserController = async (
   request: FastifyRequest,
@@ -9,13 +38,7 @@ export const createUserController = async (
   const validation = createUserSchema.safeParse(request.body);
 
   if (!validation.success) {
-    return reply.status(400).send({
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Invalid request data",
-        details: validation.error.issues,
-      },
-    });
+    return validationError(reply, validation.error);
   }
 
   const user = await usersService.createUser(
@@ -24,12 +47,7 @@ export const createUserController = async (
   );
 
   if (!user) {
-    return reply.status(409).send({
-      error: {
-        code: "EMAIL_ALREADY_EXISTS",
-        message: "A user with this email already exists",
-      },
-    });
+    return emailAlreadyExists(reply);
   }
 
   return reply.status(201).send({ user });
@@ -58,12 +76,7 @@ export const getUserByIdController = async (
   );
 
   if (!user) {
-    return reply.status(404).send({
-      error: {
-        code: "USER_NOT_FOUND",
-        message: "User not found",
-      },
-    });
+    return userNotFound(reply);
   }
 
   return reply.status(200).send({ user });
@@ -76,13 +89,7 @@ export const updateUserController = async (
   const validation = updateUserSchema.safeParse(request.body);
 
   if (!validation.success) {
-    return reply.status(400).send({
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Invalid request data",
-        details: validation.error.issues,
-      },
-    });
+    return validationError(reply, validation.error);
   }
 
   const result = await usersService.updateUser(
@@ -92,24 +99,32 @@ export const updateUserController = async (
   );
 
   if (result.status === "not_found") {
-    return reply.status(404).send({
-      error: {
-        code: "USER_NOT_FOUND",
-        message: "User not found",
-      },
-    });
+    return userNotFound(reply);
   }
 
   if (result.status === "email_exists") {
-    return reply.status(409).send({
-      error: {
-        code: "EMAIL_ALREADY_EXISTS",
-        message: "A user with this email already exists",
-      },
-    });
+    return emailAlreadyExists(reply);
   }
 
   return reply.status(200).send({
     user: result.user,
+  });
+};
+
+export const deactivateUserController = async (
+  request: FastifyRequest<{ Params: UserIdParams }>,
+  reply: FastifyReply,
+) => {
+  const user = await usersService.deactivateUser(
+    request.params.id,
+    request.user.restaurantId,
+  );
+
+  if (!user) {
+    return userNotFound(reply);
+  }
+
+  return reply.status(200).send({
+    message: "User deactivated successfully",
   });
 };

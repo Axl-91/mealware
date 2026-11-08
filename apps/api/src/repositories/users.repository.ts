@@ -123,3 +123,20 @@ export const updateUser = async (
     throw error;
   }
 };
+
+export const deactivateUser = async (userId: string, restaurantId: string) => {
+  const user = await db
+    .updateTable("users")
+    .set({
+      is_active: false,
+      updated_at: new Date(),
+    })
+    .where("id", "=", userId)
+    .where("restaurant_id", "=", restaurantId)
+    .where("is_active", "=", true)
+    .where("role", "=", "EMPLOYEE")
+    .returning("id")
+    .executeTakeFirst();
+
+  return user;
+};
