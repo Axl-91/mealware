@@ -1,27 +1,9 @@
-import { Migrator } from "kysely/migration";
 import { db } from "./database.js";
-import { createMigrationProvider } from "./migration-provider.js";
+import { runMigrations } from "./run-migrations.js";
 
-const migrator = new Migrator({
-  db,
-  provider: createMigrationProvider(),
-});
-
-const runMigrations = async () => {
+const migrate = async () => {
   try {
-    const { error, results } = await migrator.migrateToLatest();
-
-    for (const result of results ?? []) {
-      if (result.status === "Success") {
-        console.log(`Migration completed: ${result.migrationName}`);
-      } else if (result.status === "Error") {
-        console.error(`Migration failed: ${result.migrationName}`);
-      }
-    }
-
-    if (error) {
-      throw error;
-    }
+    await runMigrations(db);
   } catch (error) {
     console.error("Migration execution failed:", error);
     process.exitCode = 1;
@@ -30,4 +12,4 @@ const runMigrations = async () => {
   }
 };
 
-await runMigrations();
+await migrate();
