@@ -7,17 +7,19 @@ import jwt from "@fastify/jwt";
 export const buildApp = async () => {
   const app = Fastify({
     logger:
-      env.NODE_ENV === "development"
-        ? {
-            transport: {
-              target: "pino-pretty",
-              options: {
-                translateTime: "SYS:standard",
-                ignore: "pid,hostname",
+      env.NODE_ENV === "test"
+        ? false
+        : env.NODE_ENV === "development"
+          ? {
+              transport: {
+                target: "pino-pretty",
+                options: {
+                  translateTime: "SYS:standard",
+                  ignore: "pid,hostname",
+                },
               },
-            },
-          }
-        : true,
+            }
+          : true,
   });
 
   await app.register(cookie);
