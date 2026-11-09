@@ -1,0 +1,61 @@
+name: API CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: API Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: mealware
+          POSTGRES_PASSWORD: mealware_password
+          POSTGRES_DB: mealware
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mealware -d mealware"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://mealware:mealware_password@localhost:5432/mealware
+      TEST_DATABASE_URL: postgresql://mealware:mealware_password@localhost:5432/mealware_test
+      JWT_SECRET: test_secret_key_that_is_at_least_32_characters_long
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.12.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @mealware/shared build
+
+      - name: Typecheck API
+        run: pnpm --filter @mealware/api typecheck
+
+      - name: Run API tests
+        run: pnpm --filter @mealware/api test
+
+      - name: Build API
+        run: pnpm --filter @mealware/api build
