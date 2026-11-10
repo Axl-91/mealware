@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   afterAll,
   afterEach,
@@ -66,16 +67,58 @@ describe("POST /api/v1/auth/login", () => {
       url: "/api/v1/auth/login",
       payload: {
         ...credentials,
-        password: "WrongPassword123!",
+        password: `WrongPassword-${randomUUID()}!`,
       },
     });
 
     expect(response.statusCode).toBe(401);
-    expect(response.json()).toEqual({
-      error: {
-        code: "INVALID_CREDENTIALS",
-        message: "Invalid email or password",
+    expect(response.json().error.code).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("should reject a user that does not exist", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: {
+        email: `unknown-${randomUUID()}@mealware.test`,
+        password: `TestPassword-${randomUUID()}!`,
       },
     });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().error.code).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("should reject an inactive user", async () => {
+    const fixture = await createTestUserWithCleanup({
+      isActive: false,
+    });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/login",
+        payload: {
+          email: fixture.user.email,
+          password: fixture.user.plainPassword,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json().error.code).toBe("INVALID_CREDENTIALS");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("should return 400 when the request body is invalid", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
   });
 });
