@@ -4,7 +4,7 @@ import { hashPassword } from "../../../src/auth/password.js";
 import { USER_ROLES } from "@mealware/shared";
 import { createTestRestaurant } from "./restaurants.js";
 
-interface CreateTestUserInput {
+export interface CreateTestUserInput {
   restaurantId?: string;
   name?: string;
   email?: string;
