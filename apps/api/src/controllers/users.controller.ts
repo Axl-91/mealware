@@ -1,7 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createUserSchema, updateUserSchema } from "@mealware/shared";
 import * as usersService from "../services/users.service.js";
-import { ZodError } from "zod";
 import { validationError } from "../utils/http-errors.js";
 
 const userNotFound = (reply: FastifyReply) => {
