@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { loginSchema } from "@mealware/shared";
 import { env } from "../config/env.js";
 import * as authService from "../services/auth.service.js";
+import { validationError } from "../utils/http-errors.js";
 
 export const loginController = async (
   request: FastifyRequest,
@@ -10,12 +11,7 @@ export const loginController = async (
   const validation = loginSchema.safeParse(request.body);
 
   if (!validation.success) {
-    return reply.status(400).send({
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Invalid request body",
-      },
-    });
+    return validationError(reply, validation.error);
   }
 
   const user = await authService.authenticateUser(validation.data);

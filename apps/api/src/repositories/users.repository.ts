@@ -1,5 +1,6 @@
 import type { UpdateUserInput } from "@mealware/shared";
 import { db } from "../database/database.js";
+import { isUniqueViolation } from "../utils/database.js";
 
 interface CreateUserRepositoryInput {
   restaurantId: string;
@@ -7,15 +8,6 @@ interface CreateUserRepositoryInput {
   email: string;
   passwordHash: string;
 }
-
-const isUniqueViolation = (error: unknown): boolean => {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23505"
-  );
-};
 
 export const createUser = async ({
   restaurantId,

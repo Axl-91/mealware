@@ -2,16 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { createUserSchema, updateUserSchema } from "@mealware/shared";
 import * as usersService from "../services/users.service.js";
 import { ZodError } from "zod";
-
-const validationError = (reply: FastifyReply, error: ZodError) => {
-  return reply.status(400).send({
-    error: {
-      code: "VALIDATION_ERROR",
-      message: "Invalid request data",
-      details: error.issues,
-    },
-  });
-};
+import { validationError } from "../utils/http-errors.js";
 
 const userNotFound = (reply: FastifyReply) => {
   return reply.status(404).send({

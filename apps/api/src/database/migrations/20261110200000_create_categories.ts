@@ -1,6 +1,16 @@
 import { sql, type Kysely } from "kysely";
 
 export async function up(db: Kysely<any>): Promise<void> {
+  /**
+   * TABLE categories
+   * ----------------
+   * id         UUID         PK, DEFAULT gen_random_uuid()
+   * name       VARCHAR(100) NOT NULL, UNIQUE (normalized, case-insensitive)
+   * created_by UUID         NOT NULL, FK users(id), ON DELETE RESTRICT
+   * is_active  BOOLEAN      NOT NULL, DEFAULT true
+   * created_at TIMESTAMPTZ  NOT NULL, DEFAULT now()
+   * updated_at TIMESTAMPTZ  NOT NULL, DEFAULT now()
+   */
   await db.schema
     .createTable("categories")
     .addColumn("id", "uuid", (column) =>
