@@ -3,6 +3,7 @@ import { healthRoutes } from "./routes/health.js";
 import { authRoutes } from "./routes/auth.js";
 import { usersRoutes } from "./routes/users.js";
 import { categoriesRoutes } from "./routes/categories.js";
+import { menuItemsRoutes } from "./routes/menu-items.js";
 
 export const routes: FastifyPluginAsync = async (app) => {
   await app.register(
@@ -21,6 +22,9 @@ export const routes: FastifyPluginAsync = async (app) => {
 
       await api.register(categoriesRoutes, {
         prefix: "/categories",
+      });
+      await api.register(menuItemsRoutes, {
+        prefix: "/menu-items",
       });
     },
     {
