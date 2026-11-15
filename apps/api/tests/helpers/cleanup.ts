@@ -1,6 +1,7 @@
 import { db } from "../../src/database/database.js";
 
 interface CleanupTestDataInput {
+  menuItemIds?: string[];
   categoryIds?: string[];
   userIds?: string[];
   userEmails?: string[];
@@ -8,11 +9,16 @@ interface CleanupTestDataInput {
 }
 
 export const cleanupTestData = async ({
+  menuItemIds = [],
   categoryIds = [],
   userIds = [],
   userEmails = [],
   restaurantIds = [],
 }: CleanupTestDataInput = {}) => {
+  if (menuItemIds.length > 0) {
+    await db.deleteFrom("menu_items").where("id", "in", menuItemIds).execute();
+  }
+
   if (categoryIds.length > 0) {
     await db.deleteFrom("categories").where("id", "in", categoryIds).execute();
   }
