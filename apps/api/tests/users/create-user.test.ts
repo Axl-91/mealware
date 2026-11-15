@@ -12,43 +12,29 @@ import { USER_ROLES } from "@mealware/shared";
 import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
-import { createTestUserWithCleanup } from "../helpers/create-test-user.js";
+import { createTestUserWithAuth } from "../helpers/create-test-user.js";
 
 describe("POST /api/v1/users", () => {
   const appPromise = buildApp();
 
   let app: Awaited<typeof appPromise>;
-  let adminCookie: string;
-  let adminEmail: string;
+
+  let admin: Awaited<ReturnType<typeof createTestUserWithAuth>>;
+  let employee: Awaited<ReturnType<typeof createTestUserWithAuth>> | undefined;
+
   let createdUserId: string | undefined;
   let createdUserEmail: string | undefined;
-  let cleanupAdmin: (() => Promise<void>) | undefined;
-  let cleanupEmployee: (() => Promise<void>) | undefined;
 
   beforeAll(async () => {
     app = await appPromise;
   });
 
   beforeEach(async () => {
-    const fixture = await createTestUserWithCleanup({
+    admin = await createTestUserWithAuth(app, {
       name: `Test Admin ${randomUUID()}`,
       password: `AdminPassword-${randomUUID()}!`,
       role: USER_ROLES.ADMIN,
     });
-
-    cleanupAdmin = fixture.cleanup;
-    adminEmail = fixture.user.email;
-
-    const loginResponse = await app.inject({
-      method: "POST",
-      url: "/api/v1/auth/login",
-      payload: {
-        email: fixture.user.email,
-        password: fixture.user.plainPassword,
-      },
-    });
-
-    adminCookie = loginResponse.headers["set-cookie"]!.toString();
   });
 
   afterEach(async () => {
@@ -59,15 +45,14 @@ describe("POST /api/v1/users", () => {
       });
     } finally {
       try {
-        await cleanupEmployee?.();
+        await employee?.cleanup();
       } finally {
         try {
-          await cleanupAdmin?.();
+          await admin.cleanup();
         } finally {
           createdUserId = undefined;
           createdUserEmail = undefined;
-          cleanupEmployee = undefined;
-          cleanupAdmin = undefined;
+          employee = undefined;
         }
       }
     }
@@ -91,7 +76,7 @@ describe("POST /api/v1/users", () => {
       method: "POST",
       url: "/api/v1/users",
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: userData,
     });
@@ -118,11 +103,11 @@ describe("POST /api/v1/users", () => {
       method: "POST",
       url: "/api/v1/users",
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: {
         name: `Test Employee ${randomUUID()}`,
-        email: adminEmail,
+        email: admin.user.email,
         password: `TestPassword-${randomUUID()}!`,
       },
     });
@@ -135,7 +120,7 @@ describe("POST /api/v1/users", () => {
       method: "POST",
       url: "/api/v1/users",
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: {},
     });
@@ -158,30 +143,17 @@ describe("POST /api/v1/users", () => {
   });
 
   it("should return 403 when the authenticated user is an employee", async () => {
-    const fixture = await createTestUserWithCleanup({
+    employee = await createTestUserWithAuth(app, {
       name: `Test Employee ${randomUUID()}`,
       password: `EmployeePassword-${randomUUID()}!`,
       role: USER_ROLES.EMPLOYEE,
     });
 
-    cleanupEmployee = fixture.cleanup;
-
-    const loginResponse = await app.inject({
-      method: "POST",
-      url: "/api/v1/auth/login",
-      payload: {
-        email: fixture.user.email,
-        password: fixture.user.plainPassword,
-      },
-    });
-
-    const employeeCookie = loginResponse.headers["set-cookie"]!.toString();
-
     const response = await app.inject({
       method: "POST",
       url: "/api/v1/users",
       headers: {
-        cookie: employeeCookie,
+        cookie: employee.cookie,
       },
       payload: {
         name: `Test Employee ${randomUUID()}`,

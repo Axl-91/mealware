@@ -1,48 +1,24 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USER_ROLES } from "@mealware/shared";
 import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
-import { createTestUserWithCleanup } from "../helpers/create-test-user.js";
-import { createTestUser } from "../helpers/fixtures/users.js";
+import { createTestUserWithAuth } from "../helpers/create-test-user.js";
 
 describe("GET /api/v1/categories/:id", () => {
   const appPromise = buildApp();
 
   let app: Awaited<typeof appPromise>;
 
-  let employeeFixture: Awaited<ReturnType<typeof createTestUserWithCleanup>>;
-
-  let adminUser: Awaited<ReturnType<typeof createTestUser>>;
-
-  let employeeCookie: string;
-  let adminCookie: string;
+  let employee: Awaited<ReturnType<typeof createTestUserWithAuth>>;
+  let admin: Awaited<ReturnType<typeof createTestUserWithAuth>>;
 
   let employeeCategoryId: string;
   let adminCategoryId: string;
   let inactiveCategoryId: string;
 
   const categoryIds: string[] = [];
-
-  const login = async (email: string, password: string) => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/v1/auth/login",
-      payload: {
-        email,
-        password,
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-
-    const setCookie = response.headers["set-cookie"];
-    const cookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-
-    expect(cookie).toBeDefined();
-
-    return cookie!.split(";")[0]!;
-  };
 
   const createCategory = async (name: string, cookie: string) => {
     const response = await app.inject({
@@ -77,36 +53,29 @@ describe("GET /api/v1/categories/:id", () => {
   beforeAll(async () => {
     app = await appPromise;
 
-    employeeFixture = await createTestUserWithCleanup();
+    employee = await createTestUserWithAuth(app);
 
-    adminUser = await createTestUser({
+    admin = await createTestUserWithAuth(app, {
       role: USER_ROLES.ADMIN,
     });
 
-    employeeCookie = await login(
-      employeeFixture.user.email,
-      employeeFixture.user.plainPassword,
-    );
-
-    adminCookie = await login(adminUser.email, adminUser.plainPassword);
-
     const employeeCategory = await createCategory(
       "Employee category by ID",
-      employeeCookie,
+      employee.cookie,
     );
 
     employeeCategoryId = employeeCategory.id;
 
     const adminCategory = await createCategory(
       "Admin category by ID",
-      adminCookie,
+      admin.cookie,
     );
 
     adminCategoryId = adminCategory.id;
 
     const inactiveCategory = await createCategory(
       "Inactive category by ID",
-      employeeCookie,
+      employee.cookie,
     );
 
     inactiveCategoryId = inactiveCategory.id;
@@ -115,7 +84,7 @@ describe("GET /api/v1/categories/:id", () => {
       method: "DELETE",
       url: `/api/v1/categories/${inactiveCategoryId}`,
       headers: {
-        cookie: employeeCookie,
+        cookie: employee.cookie,
       },
     });
 
@@ -123,52 +92,43 @@ describe("GET /api/v1/categories/:id", () => {
   });
 
   afterAll(async () => {
-    await cleanupTestData({
-      categoryIds,
-    });
+    await cleanupTestData({ categoryIds });
 
-    await employeeFixture.cleanup();
-
-    await cleanupTestData({
-      userIds: [adminUser.id],
-      restaurantIds: [adminUser.restaurant_id],
-    });
+    await employee.cleanup();
+    await admin.cleanup();
 
     await app.close();
     await db.destroy();
   });
 
   it("should return a category created by the authenticated user", async () => {
-    const response = await getCategoryById(employeeCategoryId, employeeCookie);
+    const response = await getCategoryById(employeeCategoryId, employee.cookie);
 
     expect(response.statusCode).toBe(200);
 
     expect(response.json().category).toMatchObject({
       id: employeeCategoryId,
       name: "Employee category by ID",
-      created_by: employeeFixture.user.id,
+      created_by: employee.user.id,
       is_active: true,
     });
   });
 
   it("should return a category created by a user from another restaurant", async () => {
-    const response = await getCategoryById(employeeCategoryId, adminCookie);
+    const response = await getCategoryById(employeeCategoryId, admin.cookie);
 
     expect(response.statusCode).toBe(200);
 
     expect(response.json().category).toMatchObject({
       id: employeeCategoryId,
       name: "Employee category by ID",
-      created_by: employeeFixture.user.id,
+      created_by: employee.user.id,
       is_active: true,
     });
   });
 
   it("should return 404 when the category does not exist", async () => {
-    const response = await getCategoryById(
-      "00000000-0000-0000-0000-000000000000",
-      employeeCookie,
-    );
+    const response = await getCategoryById(randomUUID(), employee.cookie);
 
     expect(response.statusCode).toBe(404);
 
@@ -181,7 +141,7 @@ describe("GET /api/v1/categories/:id", () => {
   });
 
   it("should return 404 when the category is inactive", async () => {
-    const response = await getCategoryById(inactiveCategoryId, employeeCookie);
+    const response = await getCategoryById(inactiveCategoryId, employee.cookie);
 
     expect(response.statusCode).toBe(404);
 
@@ -203,14 +163,14 @@ describe("GET /api/v1/categories/:id", () => {
   });
 
   it("should return a category created by an admin when requested by an employee", async () => {
-    const response = await getCategoryById(adminCategoryId, employeeCookie);
+    const response = await getCategoryById(adminCategoryId, employee.cookie);
 
     expect(response.statusCode).toBe(200);
 
     expect(response.json().category).toMatchObject({
       id: adminCategoryId,
       name: "Admin category by ID",
-      created_by: adminUser.id,
+      created_by: admin.user.id,
       is_active: true,
     });
   });

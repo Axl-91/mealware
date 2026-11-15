@@ -13,15 +13,14 @@ import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
 import { createTestUser } from "../helpers/fixtures/users.js";
-import { createTestUserWithCleanup } from "../helpers/create-test-user.js";
+import { createTestUserWithAuth } from "../helpers/create-test-user.js";
 
 describe("PUT /api/v1/users/:id", () => {
   const appPromise = buildApp();
 
   let app: Awaited<typeof appPromise>;
-  let adminCookie: string;
-  let adminRestaurantId: string;
-  let adminCleanup: (() => Promise<void>) | undefined;
+
+  let admin: Awaited<ReturnType<typeof createTestUserWithAuth>>;
 
   let createdUserIds: string[] = [];
   let createdUserEmails: string[] = [];
@@ -32,25 +31,11 @@ describe("PUT /api/v1/users/:id", () => {
   });
 
   beforeEach(async () => {
-    const fixture = await createTestUserWithCleanup({
+    admin = await createTestUserWithAuth(app, {
       name: `Test Admin ${randomUUID()}`,
       password: `AdminPassword-${randomUUID()}!`,
       role: USER_ROLES.ADMIN,
     });
-
-    adminCleanup = fixture.cleanup;
-    adminRestaurantId = fixture.user.restaurant_id;
-
-    const loginResponse = await app.inject({
-      method: "POST",
-      url: "/api/v1/auth/login",
-      payload: {
-        email: fixture.user.email,
-        password: fixture.user.plainPassword,
-      },
-    });
-
-    adminCookie = loginResponse.headers["set-cookie"]!.toString();
   });
 
   afterEach(async () => {
@@ -62,12 +47,11 @@ describe("PUT /api/v1/users/:id", () => {
       });
     } finally {
       try {
-        await adminCleanup?.();
+        await admin.cleanup();
       } finally {
         createdUserIds = [];
         createdUserEmails = [];
         createdRestaurantIds = [];
-        adminCleanup = undefined;
       }
     }
   });
@@ -79,7 +63,7 @@ describe("PUT /api/v1/users/:id", () => {
 
   it("should update a user's name and email successfully", async () => {
     const employee = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Test Employee ${randomUUID()}`,
       role: USER_ROLES.EMPLOYEE,
     });
@@ -96,7 +80,7 @@ describe("PUT /api/v1/users/:id", () => {
       method: "PUT",
       url: `/api/v1/users/${employee.id}`,
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: updatedData,
     });
@@ -115,13 +99,13 @@ describe("PUT /api/v1/users/:id", () => {
 
   it("should return 409 when the email already belongs to another user", async () => {
     const employee = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Test Employee ${randomUUID()}`,
       role: USER_ROLES.EMPLOYEE,
     });
 
     const anotherEmployee = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Another Employee ${randomUUID()}`,
       role: USER_ROLES.EMPLOYEE,
     });
@@ -133,7 +117,7 @@ describe("PUT /api/v1/users/:id", () => {
       method: "PUT",
       url: `/api/v1/users/${employee.id}`,
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: {
         name: `Updated Employee ${randomUUID()}`,
@@ -155,7 +139,7 @@ describe("PUT /api/v1/users/:id", () => {
       method: "PUT",
       url: `/api/v1/users/${randomUUID()}`,
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: {
         name: `Updated Employee ${randomUUID()}`,
@@ -186,7 +170,7 @@ describe("PUT /api/v1/users/:id", () => {
       method: "PUT",
       url: `/api/v1/users/${otherUser.id}`,
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: {
         name: `Updated Employee ${randomUUID()}`,
@@ -205,7 +189,7 @@ describe("PUT /api/v1/users/:id", () => {
 
   it("should return 404 when the user is inactive", async () => {
     const inactiveUser = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Inactive Employee ${randomUUID()}`,
       isActive: false,
       role: USER_ROLES.EMPLOYEE,
@@ -218,7 +202,7 @@ describe("PUT /api/v1/users/:id", () => {
       method: "PUT",
       url: `/api/v1/users/${inactiveUser.id}`,
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: {
         name: `Updated Employee ${randomUUID()}`,
@@ -237,7 +221,7 @@ describe("PUT /api/v1/users/:id", () => {
 
   it("should return 400 when the request body is invalid", async () => {
     const employee = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Test Employee ${randomUUID()}`,
       role: USER_ROLES.EMPLOYEE,
     });
@@ -249,7 +233,7 @@ describe("PUT /api/v1/users/:id", () => {
       method: "PUT",
       url: `/api/v1/users/${employee.id}`,
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
       payload: {},
     });
@@ -278,7 +262,7 @@ describe("PUT /api/v1/users/:id", () => {
 
   it("should return 403 when the authenticated user is an employee", async () => {
     const employee = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Test Employee ${randomUUID()}`,
       password: `EmployeePassword-${randomUUID()}!`,
       role: USER_ROLES.EMPLOYEE,

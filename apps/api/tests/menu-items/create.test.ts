@@ -4,37 +4,18 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
-import { createTestUser } from "../helpers/fixtures/users.js";
-import { createTestUserWithCleanup } from "../helpers/create-test-user.js";
+import { createTestUserWithAuth } from "../helpers/create-test-user.js";
 import { randomPrice } from "../helpers/random.js";
 
 const appPromise = buildApp();
 
 let app: Awaited<ReturnType<typeof buildApp>>;
 
-let employeeFixture: Awaited<ReturnType<typeof createTestUserWithCleanup>>;
-let adminUser: Awaited<ReturnType<typeof createTestUser>>;
-
-let employeeCookie: string;
-let adminCookie: string;
+let employee: Awaited<ReturnType<typeof createTestUserWithAuth>>;
+let admin: Awaited<ReturnType<typeof createTestUserWithAuth>>;
 
 const menuItemIds: string[] = [];
 const categoryIds: string[] = [];
-
-const login = async (email: string, password: string) => {
-  const response = await app.inject({
-    method: "POST",
-    url: "/api/v1/auth/login",
-    payload: { email, password },
-  });
-
-  expect(response.statusCode).toBe(200);
-
-  const setCookie = response.headers["set-cookie"];
-  const cookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-
-  return cookie!.split(";")[0]!;
-};
 
 const createCategory = async (name: string, cookie: string) => {
   const response = await app.inject({
@@ -78,19 +59,15 @@ describe("POST /api/v1/menu-items", () => {
   beforeAll(async () => {
     app = await appPromise;
 
-    employeeFixture = await createTestUserWithCleanup();
-    adminUser = await createTestUser({ role: USER_ROLES.ADMIN });
+    employee = await createTestUserWithAuth(app);
 
-    employeeCookie = await login(
-      employeeFixture.user.email,
-      employeeFixture.user.plainPassword,
-    );
-
-    adminCookie = await login(adminUser.email, adminUser.plainPassword);
+    admin = await createTestUserWithAuth(app, {
+      role: USER_ROLES.ADMIN,
+    });
 
     const category = await createCategory(
       `Menu Items ${randomUUID()}`,
-      employeeCookie,
+      employee.cookie,
     );
 
     categoryId = category.id;
@@ -99,12 +76,8 @@ describe("POST /api/v1/menu-items", () => {
   afterAll(async () => {
     await cleanupTestData({ menuItemIds, categoryIds });
 
-    await employeeFixture.cleanup();
-
-    await cleanupTestData({
-      userIds: [adminUser.id],
-      restaurantIds: [adminUser.restaurant_id],
-    });
+    await employee.cleanup();
+    await admin.cleanup();
 
     await app.close();
     await db.destroy();
@@ -113,7 +86,7 @@ describe("POST /api/v1/menu-items", () => {
   it("should create a menu item as an admin", async () => {
     const price = randomPrice();
 
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId,
       name: `Classic Burger ${randomUUID()}`,
       description: "Burger with cheese",
@@ -124,7 +97,7 @@ describe("POST /api/v1/menu-items", () => {
     expect(response.json()).toMatchObject({
       menuItem: {
         category_id: categoryId,
-        restaurant_id: adminUser.restaurant_id,
+        restaurant_id: admin.user.restaurant_id,
         description: "Burger with cheese",
         price: price.toFixed(2),
         is_available: true,
@@ -139,7 +112,7 @@ describe("POST /api/v1/menu-items", () => {
   });
 
   it("should normalize whitespace in the menu item name", async () => {
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId,
       name: "  Double    Cheese   Burger  ",
       price: randomPrice(),
@@ -150,7 +123,7 @@ describe("POST /api/v1/menu-items", () => {
   });
 
   it("should return 403 when an employee tries to create a menu item", async () => {
-    const response = await createMenuItem(employeeCookie, {
+    const response = await createMenuItem(employee.cookie, {
       categoryId,
       name: `Employee Burger ${randomUUID()}`,
       price: randomPrice(),
@@ -160,7 +133,7 @@ describe("POST /api/v1/menu-items", () => {
   });
 
   it("should return 400 when the name is empty", async () => {
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId,
       name: "   ",
       price: randomPrice(),
@@ -171,7 +144,7 @@ describe("POST /api/v1/menu-items", () => {
   });
 
   it("should return 400 when the name exceeds the maximum length", async () => {
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId,
       name: "A".repeat(151),
       price: randomPrice(),
@@ -182,7 +155,7 @@ describe("POST /api/v1/menu-items", () => {
   });
 
   it("should return 400 when the price is negative", async () => {
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId,
       name: `Invalid Price ${randomUUID()}`,
       price: -1,
@@ -193,7 +166,7 @@ describe("POST /api/v1/menu-items", () => {
   });
 
   it("should return 400 when the price has more than two decimal places", async () => {
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId,
       name: `Invalid Decimals ${randomUUID()}`,
       price: 10.123,
@@ -204,7 +177,7 @@ describe("POST /api/v1/menu-items", () => {
   });
 
   it("should return 400 when the category ID is invalid", async () => {
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId: "invalid-uuid",
       name: `Invalid Category ${randomUUID()}`,
       price: randomPrice(),
@@ -215,7 +188,7 @@ describe("POST /api/v1/menu-items", () => {
   });
 
   it("should return 404 when the category does not exist", async () => {
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId: randomUUID(),
       name: `Missing Category ${randomUUID()}`,
       price: randomPrice(),
@@ -228,7 +201,7 @@ describe("POST /api/v1/menu-items", () => {
   it("should return 404 when the category is inactive", async () => {
     const category = await createCategory(
       `Inactive Category ${randomUUID()}`,
-      employeeCookie,
+      employee.cookie,
     );
 
     await db
@@ -237,7 +210,7 @@ describe("POST /api/v1/menu-items", () => {
       .where("id", "=", category.id)
       .execute();
 
-    const response = await createMenuItem(adminCookie, {
+    const response = await createMenuItem(admin.cookie, {
       categoryId: category.id,
       name: `Inactive Category Item ${randomUUID()}`,
       price: randomPrice(),
@@ -250,7 +223,7 @@ describe("POST /api/v1/menu-items", () => {
   it("should return 409 when a menu item with the same name already exists in the restaurant", async () => {
     const name = `Duplicate Burger ${randomUUID()}`;
 
-    const firstResponse = await createMenuItem(adminCookie, {
+    const firstResponse = await createMenuItem(admin.cookie, {
       categoryId,
       name,
       price: randomPrice(),
@@ -258,7 +231,7 @@ describe("POST /api/v1/menu-items", () => {
 
     expect(firstResponse.statusCode).toBe(201);
 
-    const secondResponse = await createMenuItem(adminCookie, {
+    const secondResponse = await createMenuItem(admin.cookie, {
       categoryId,
       name: name.toLowerCase(),
       price: randomPrice(),

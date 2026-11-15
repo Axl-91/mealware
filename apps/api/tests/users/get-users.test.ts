@@ -13,15 +13,14 @@ import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
 import { createTestUser } from "../helpers/fixtures/users.js";
-import { createTestUserWithCleanup } from "../helpers/create-test-user.js";
+import { createTestUserWithAuth } from "../helpers/create-test-user.js";
 
 describe("GET /api/v1/users", () => {
   const appPromise = buildApp();
 
   let app: Awaited<typeof appPromise>;
-  let adminCookie: string;
-  let adminRestaurantId: string;
-  let adminCleanup: (() => Promise<void>) | undefined;
+
+  let admin: Awaited<ReturnType<typeof createTestUserWithAuth>>;
 
   let createdUserIds: string[] = [];
   let createdUserEmails: string[] = [];
@@ -32,25 +31,11 @@ describe("GET /api/v1/users", () => {
   });
 
   beforeEach(async () => {
-    const fixture = await createTestUserWithCleanup({
+    admin = await createTestUserWithAuth(app, {
       name: `Test Admin ${randomUUID()}`,
       password: `AdminPassword-${randomUUID()}!`,
       role: USER_ROLES.ADMIN,
     });
-
-    adminCleanup = fixture.cleanup;
-    adminRestaurantId = fixture.user.restaurant_id;
-
-    const loginResponse = await app.inject({
-      method: "POST",
-      url: "/api/v1/auth/login",
-      payload: {
-        email: fixture.user.email,
-        password: fixture.user.plainPassword,
-      },
-    });
-
-    adminCookie = loginResponse.headers["set-cookie"]!.toString();
   });
 
   afterEach(async () => {
@@ -62,12 +47,11 @@ describe("GET /api/v1/users", () => {
       });
     } finally {
       try {
-        await adminCleanup?.();
+        await admin.cleanup();
       } finally {
         createdUserIds = [];
         createdUserEmails = [];
         createdRestaurantIds = [];
-        adminCleanup = undefined;
       }
     }
   });
@@ -79,7 +63,7 @@ describe("GET /api/v1/users", () => {
 
   it("should return active users from the admin's restaurant", async () => {
     const employee = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Test Employee ${randomUUID()}`,
       role: USER_ROLES.EMPLOYEE,
     });
@@ -100,7 +84,7 @@ describe("GET /api/v1/users", () => {
       method: "GET",
       url: "/api/v1/users",
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
     });
 
@@ -128,7 +112,7 @@ describe("GET /api/v1/users", () => {
 
   it("should not return inactive users", async () => {
     const inactiveUser = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Inactive Employee ${randomUUID()}`,
       isActive: false,
       role: USER_ROLES.EMPLOYEE,
@@ -141,7 +125,7 @@ describe("GET /api/v1/users", () => {
       method: "GET",
       url: "/api/v1/users",
       headers: {
-        cookie: adminCookie,
+        cookie: admin.cookie,
       },
     });
 
@@ -169,7 +153,7 @@ describe("GET /api/v1/users", () => {
 
   it("should return 403 when the authenticated user is an employee", async () => {
     const employee = await createTestUser({
-      restaurantId: adminRestaurantId,
+      restaurantId: admin.user.restaurant_id,
       name: `Test Employee ${randomUUID()}`,
       password: `EmployeePassword-${randomUUID()}!`,
       role: USER_ROLES.EMPLOYEE,

@@ -3,45 +3,20 @@ import { USER_ROLES } from "@mealware/shared";
 import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
-import { createTestUserWithCleanup } from "../helpers/create-test-user.js";
-import { createTestUser } from "../helpers/fixtures/users.js";
+import { createTestUserWithAuth } from "../helpers/create-test-user.js";
 
 describe("GET /api/v1/categories", () => {
   const appPromise = buildApp();
 
   let app: Awaited<typeof appPromise>;
 
-  let employeeFixture: Awaited<ReturnType<typeof createTestUserWithCleanup>>;
-
-  let adminUser: Awaited<ReturnType<typeof createTestUser>>;
-
-  let employeeCookie: string;
-  let adminCookie: string;
+  let employee: Awaited<ReturnType<typeof createTestUserWithAuth>>;
+  let admin: Awaited<ReturnType<typeof createTestUserWithAuth>>;
 
   let employeeCategoryId: string;
   let adminCategoryId: string;
 
   const categoryIds: string[] = [];
-
-  const login = async (email: string, password: string) => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/v1/auth/login",
-      payload: {
-        email,
-        password,
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-
-    const setCookie = response.headers["set-cookie"];
-    const cookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-
-    expect(cookie).toBeDefined();
-
-    return cookie!.split(";")[0]!;
-  };
 
   const createCategory = async (name: string, cookie: string) => {
     const response = await app.inject({
@@ -76,52 +51,39 @@ describe("GET /api/v1/categories", () => {
   beforeAll(async () => {
     app = await appPromise;
 
-    employeeFixture = await createTestUserWithCleanup();
+    employee = await createTestUserWithAuth(app);
 
-    adminUser = await createTestUser({
+    admin = await createTestUserWithAuth(app, {
       role: USER_ROLES.ADMIN,
     });
 
-    employeeCookie = await login(
-      employeeFixture.user.email,
-      employeeFixture.user.plainPassword,
-    );
-
-    adminCookie = await login(adminUser.email, adminUser.plainPassword);
-
     const employeeCategory = await createCategory(
       "Employee global category",
-      employeeCookie,
+      employee.cookie,
     );
 
     employeeCategoryId = employeeCategory.id;
 
     const adminCategory = await createCategory(
       "Admin global category",
-      adminCookie,
+      admin.cookie,
     );
 
     adminCategoryId = adminCategory.id;
   });
 
   afterAll(async () => {
-    await cleanupTestData({
-      categoryIds,
-    });
+    await cleanupTestData({ categoryIds });
 
-    await employeeFixture.cleanup();
-
-    await cleanupTestData({
-      userIds: [adminUser.id],
-      restaurantIds: [adminUser.restaurant_id],
-    });
+    await employee.cleanup();
+    await admin.cleanup();
 
     await app.close();
     await db.destroy();
   });
 
   it("should return categories from different restaurants for an employee", async () => {
-    const response = await getCategories(employeeCookie);
+    const response = await getCategories(employee.cookie);
 
     expect(response.statusCode).toBe(200);
 
@@ -142,7 +104,7 @@ describe("GET /api/v1/categories", () => {
   });
 
   it("should return categories from different restaurants for an admin", async () => {
-    const response = await getCategories(adminCookie);
+    const response = await getCategories(admin.cookie);
 
     expect(response.statusCode).toBe(200);
 
@@ -167,13 +129,13 @@ describe("GET /api/v1/categories", () => {
       method: "DELETE",
       url: `/api/v1/categories/${employeeCategoryId}`,
       headers: {
-        cookie: employeeCookie,
+        cookie: employee.cookie,
       },
     });
 
     expect(deactivateResponse.statusCode).toBe(200);
 
-    const response = await getCategories(adminCookie);
+    const response = await getCategories(admin.cookie);
 
     expect(response.statusCode).toBe(200);
 

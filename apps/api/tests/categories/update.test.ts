@@ -4,45 +4,20 @@ import { USER_ROLES } from "@mealware/shared";
 import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
-import { createTestUserWithCleanup } from "../helpers/create-test-user.js";
-import { createTestUser } from "../helpers/fixtures/users.js";
+import { createTestUserWithAuth } from "../helpers/create-test-user.js";
 
 describe("PUT /api/v1/categories/:id", () => {
   const appPromise = buildApp();
 
   let app: Awaited<typeof appPromise>;
 
-  let employeeFixture: Awaited<ReturnType<typeof createTestUserWithCleanup>>;
-
-  let adminUser: Awaited<ReturnType<typeof createTestUser>>;
-
-  let employeeCookie: string;
-  let adminCookie: string;
+  let employee: Awaited<ReturnType<typeof createTestUserWithAuth>>;
+  let admin: Awaited<ReturnType<typeof createTestUserWithAuth>>;
 
   let employeeCategoryId: string;
   let inactiveCategoryId: string;
 
   const categoryIds: string[] = [];
-
-  const login = async (email: string, password: string) => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/v1/auth/login",
-      payload: {
-        email,
-        password,
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-
-    const setCookie = response.headers["set-cookie"];
-    const cookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-
-    expect(cookie).toBeDefined();
-
-    return cookie!.split(";")[0]!;
-  };
 
   const createCategory = async (name: string, cookie: string) => {
     const response = await app.inject({
@@ -84,31 +59,24 @@ describe("PUT /api/v1/categories/:id", () => {
   beforeAll(async () => {
     app = await appPromise;
 
-    employeeFixture = await createTestUserWithCleanup();
+    employee = await createTestUserWithAuth(app);
 
-    adminUser = await createTestUser({
+    admin = await createTestUserWithAuth(app, {
       role: USER_ROLES.ADMIN,
     });
 
-    employeeCookie = await login(
-      employeeFixture.user.email,
-      employeeFixture.user.plainPassword,
-    );
-
-    adminCookie = await login(adminUser.email, adminUser.plainPassword);
-
     const employeeCategory = await createCategory(
       "Category to update",
-      employeeCookie,
+      employee.cookie,
     );
 
     employeeCategoryId = employeeCategory.id;
 
-    await createCategory("Existing category", adminCookie);
+    await createCategory("Existing category", admin.cookie);
 
     const inactiveCategory = await createCategory(
       "Inactive category",
-      employeeCookie,
+      employee.cookie,
     );
 
     inactiveCategoryId = inactiveCategory.id;
@@ -117,7 +85,7 @@ describe("PUT /api/v1/categories/:id", () => {
       method: "DELETE",
       url: `/api/v1/categories/${inactiveCategoryId}`,
       headers: {
-        cookie: employeeCookie,
+        cookie: employee.cookie,
       },
     });
 
@@ -125,16 +93,10 @@ describe("PUT /api/v1/categories/:id", () => {
   });
 
   afterAll(async () => {
-    await cleanupTestData({
-      categoryIds,
-    });
+    await cleanupTestData({ categoryIds });
 
-    await employeeFixture.cleanup();
-
-    await cleanupTestData({
-      userIds: [adminUser.id],
-      restaurantIds: [adminUser.restaurant_id],
-    });
+    await employee.cleanup();
+    await admin.cleanup();
 
     await app.close();
     await db.destroy();
@@ -144,7 +106,7 @@ describe("PUT /api/v1/categories/:id", () => {
     const response = await updateCategory(
       employeeCategoryId,
       "Updated   category",
-      employeeCookie,
+      employee.cookie,
     );
 
     expect(response.statusCode).toBe(200);
@@ -152,7 +114,7 @@ describe("PUT /api/v1/categories/:id", () => {
     expect(response.json().category).toMatchObject({
       id: employeeCategoryId,
       name: "Updated category",
-      created_by: employeeFixture.user.id,
+      created_by: employee.user.id,
       is_active: true,
     });
   });
@@ -161,7 +123,7 @@ describe("PUT /api/v1/categories/:id", () => {
     const response = await updateCategory(
       employeeCategoryId,
       "Unauthorized update",
-      adminCookie,
+      admin.cookie,
     );
 
     expect(response.statusCode).toBe(403);
@@ -171,7 +133,7 @@ describe("PUT /api/v1/categories/:id", () => {
     const response = await updateCategory(
       randomUUID(),
       "Updated category",
-      employeeCookie,
+      employee.cookie,
     );
 
     expect(response.statusCode).toBe(404);
@@ -188,7 +150,7 @@ describe("PUT /api/v1/categories/:id", () => {
     const response = await updateCategory(
       inactiveCategoryId,
       "Updated inactive category",
-      employeeCookie,
+      employee.cookie,
     );
 
     expect(response.statusCode).toBe(404);
@@ -208,7 +170,7 @@ describe("PUT /api/v1/categories/:id", () => {
     const response = await updateCategory(
       employeeCategoryId,
       name,
-      employeeCookie,
+      employee.cookie,
     );
 
     expect(response.statusCode).toBe(400);
@@ -218,7 +180,7 @@ describe("PUT /api/v1/categories/:id", () => {
     const response = await updateCategory(
       employeeCategoryId,
       "Existing category",
-      employeeCookie,
+      employee.cookie,
     );
 
     expect(response.statusCode).toBe(409);
