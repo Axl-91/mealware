@@ -1,21 +1,38 @@
 import { sql, type Kysely } from "kysely";
 
 export async function up(db: Kysely<any>): Promise<void> {
-  // ENUMs
+  /**
+   * ENUM order_type
+   * ---------------
+   * - DINE_IN: Order consumed at the restaurant.
+   * - TAKEAWAY: Order prepared for takeaway.
+   */
   await db.schema
     .createType("order_type")
     .asEnum(["DINE_IN", "TAKEAWAY"])
     .execute();
 
+  /**
+   * ENUM order_status
+   * -----------------
+   * - PENDING: Order created and waiting to be prepared.
+   * - PREPARING: Order is being prepared.
+   * - READY: Order is ready for pickup.
+   * - COMPLETED: Order has been completed.
+   * - CANCELLED: Order has been cancelled.
+   */
   await db.schema
     .createType("order_status")
     .asEnum(["PENDING", "PREPARING", "READY", "COMPLETED", "CANCELLED"])
     .execute();
 
-  // Composite unique constraints required by foreign keys.
-  //
-  // These constraints allow PostgreSQL to guarantee that users and
-  // menu items belong to the same restaurant referenced by an order.
+  /**
+   * UNIQUE CONSTRAINT users_restaurant_id_id_unique
+   * ------------------------------------------------
+   * - Columns: (restaurant_id, id)
+   * - Required to enforce composite foreign keys referencing users
+   *   within the same restaurant.
+   */
   await db.schema
     .alterTable("users")
     .addUniqueConstraint("users_restaurant_id_id_unique", [
@@ -24,6 +41,13 @@ export async function up(db: Kysely<any>): Promise<void> {
     ])
     .execute();
 
+  /**
+   * UNIQUE CONSTRAINT menu_items_restaurant_id_id_unique
+   * ----------------------------------------------------
+   * - Columns: (restaurant_id, id)
+   * - Required to enforce composite foreign keys referencing menu items
+   *   within the same restaurant.
+   */
   await db.schema
     .alterTable("menu_items")
     .addUniqueConstraint("menu_items_restaurant_id_id_unique", [
@@ -32,31 +56,33 @@ export async function up(db: Kysely<any>): Promise<void> {
     ])
     .execute();
 
-  // Orders
-  //
-  // Columns:
-  // - id: UUID, primary key, generated automatically.
-  // - restaurant_id: UUID, required, references restaurants(id), ON DELETE RESTRICT.
-  // - order_number: INTEGER, required, must be greater than zero.
-  // - order_date: DATE, required, defaults to Argentina's local date.
-  // - type: order_type ENUM, required.
-  // - status: order_status ENUM, required, defaults to PENDING.
-  // - customer_name: VARCHAR(150), nullable.
-  // - notes: TEXT, nullable.
-  // - created_by: UUID, required, references users(id) within the same restaurant.
-  // - created_at: TIMESTAMPTZ, required, defaults to now().
-  // - updated_at: TIMESTAMPTZ, required, defaults to now().
-  //
-  // Constraints:
-  // - Primary key: id.
-  // - Unique: (restaurant_id, id), for composite foreign keys.
-  // - Unique: (restaurant_id, order_date, order_number).
-  // - Check: order_number > 0.
-  // - Check: customer_name must not be empty when provided.
-  // - Foreign key: (restaurant_id, created_by) references users(restaurant_id, id).
-  //
-  // Indexes:
-  // - (restaurant_id, status, created_at).
+  /**
+   * TABLE orders
+   * ------------
+   * id            UUID         PK, DEFAULT gen_random_uuid()
+   * restaurant_id UUID         NOT NULL, FK restaurants(id), ON DELETE RESTRICT
+   * order_number  INTEGER      NOT NULL
+   * order_date    DATE         NOT NULL, DEFAULT Argentina local date
+   * type          order_type   NOT NULL
+   * status        order_status NOT NULL, DEFAULT 'PENDING'
+   * customer_name VARCHAR(150) NULL
+   * notes         TEXT         NULL
+   * created_by    UUID         NOT NULL, FK users(restaurant_id, id)
+   * created_at    TIMESTAMPTZ  NOT NULL, DEFAULT now()
+   * updated_at    TIMESTAMPTZ  NOT NULL, DEFAULT now()
+   *
+   * Constraints:
+   * - UNIQUE (restaurant_id, id), required for composite foreign keys.
+   * - UNIQUE (restaurant_id, order_date, order_number).
+   * - CHECK (order_number > 0).
+   * - CHECK (customer_name IS NULL OR length(btrim(customer_name)) > 0).
+   * - FOREIGN KEY (restaurant_id, created_by)
+   *   REFERENCES users(restaurant_id, id), ON DELETE RESTRICT.
+   *
+   * Indexes:
+   * - orders_restaurant_status_created_at_idx:
+   *   (restaurant_id, status, created_at).
+   */
   await db.schema
     .createTable("orders")
     .addColumn("id", "uuid", (column) =>
@@ -116,30 +142,34 @@ export async function up(db: Kysely<any>): Promise<void> {
     .columns(["restaurant_id", "status", "created_at"])
     .execute();
 
-  // Order items
-  //
-  // Columns:
-  // - id: UUID, primary key, generated automatically.
-  // - restaurant_id: UUID, required, used to enforce restaurant consistency.
-  // - order_id: UUID, required, references an order in the same restaurant.
-  // - menu_item_id: UUID, required, references a menu item in the same restaurant.
-  // - name: VARCHAR(150), required, snapshot of the menu item name.
-  // - unit_price: NUMERIC(10,2), required, snapshot of the menu item price.
-  // - quantity: INTEGER, required, must be greater than zero.
-  // - notes: TEXT, nullable.
-  // - created_at: TIMESTAMPTZ, required, defaults to now().
-  //
-  // Constraints:
-  // - Primary key: id.
-  // - Foreign key: (restaurant_id, order_id) references orders(restaurant_id, id), ON DELETE CASCADE.
-  // - Foreign key: (restaurant_id, menu_item_id) references menu_items(restaurant_id, id), ON DELETE RESTRICT.
-  // - Check: name must not be empty.
-  // - Check: unit_price >= 0.
-  // - Check: quantity > 0.
-  //
-  // Indexes:
-  // - (restaurant_id, order_id).
-  // - (restaurant_id, menu_item_id).
+  /**
+   * TABLE order_items
+   * -----------------
+   * id            UUID         PK, DEFAULT gen_random_uuid()
+   * restaurant_id UUID         NOT NULL
+   * order_id      UUID         NOT NULL
+   * menu_item_id  UUID         NOT NULL
+   * name          VARCHAR(150) NOT NULL, menu item name snapshot
+   * unit_price    NUMERIC(10,2) NOT NULL, menu item price snapshot
+   * quantity      INTEGER      NOT NULL
+   * notes         TEXT         NULL
+   * created_at    TIMESTAMPTZ  NOT NULL, DEFAULT now()
+   *
+   * Constraints:
+   * - FOREIGN KEY (restaurant_id, order_id)
+   *   REFERENCES orders(restaurant_id, id), ON DELETE CASCADE.
+   * - FOREIGN KEY (restaurant_id, menu_item_id)
+   *   REFERENCES menu_items(restaurant_id, id), ON DELETE RESTRICT.
+   * - CHECK (length(btrim(name)) > 0).
+   * - CHECK (unit_price >= 0).
+   * - CHECK (quantity > 0).
+   *
+   * Indexes:
+   * - order_items_restaurant_order_id_idx:
+   *   (restaurant_id, order_id).
+   * - order_items_restaurant_menu_item_id_idx:
+   *   (restaurant_id, menu_item_id).
+   */
   await db.schema
     .createTable("order_items")
     .addColumn("id", "uuid", (column) =>
@@ -188,16 +218,17 @@ export async function up(db: Kysely<any>): Promise<void> {
     .columns(["restaurant_id", "menu_item_id"])
     .execute();
 
-  // Order sequences
-  //
-  // Columns:
-  // - restaurant_id: UUID, required, references restaurants(id), ON DELETE CASCADE.
-  // - date: DATE, required, Argentina's local calendar date.
-  // - last_number: INTEGER, required, defaults to 0, must be >= 0.
-  //
-  // Constraints:
-  // - Composite primary key: (restaurant_id, date).
-  // - Check: last_number >= 0.
+  /**
+   * TABLE order_sequences
+   * ---------------------
+   * restaurant_id UUID    NOT NULL, FK restaurants(id), ON DELETE CASCADE
+   * date          DATE    NOT NULL, Argentina local calendar date
+   * last_number   INTEGER NOT NULL, DEFAULT 0
+   *
+   * Constraints:
+   * - PRIMARY KEY (restaurant_id, date).
+   * - CHECK (last_number >= 0).
+   */
   await db.schema
     .createTable("order_sequences")
     .addColumn("restaurant_id", "uuid", (column) =>
