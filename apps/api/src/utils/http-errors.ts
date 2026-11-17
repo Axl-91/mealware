@@ -28,3 +28,29 @@ export const unauthorized = (reply: FastifyReply) => {
     },
   });
 };
+
+export const notFound = (
+  reply: FastifyReply,
+  code: string,
+  message: string,
+) => {
+  return reply.status(404).send({
+    error: {
+      code,
+      message,
+    },
+  });
+};
+
+export const conflict = (
+  reply: FastifyReply,
+  code: string,
+  message: string,
+) => {
+  return reply.status(409).send({
+    error: {
+      code,
+      message,
+    },
+  });
+};

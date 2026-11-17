@@ -2,37 +2,26 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { createMenuItemSchema, updateMenuItemSchema } from "@mealware/shared";
 import { ZodError } from "zod";
 import * as menuItemsService from "../services/menu-items.service.js";
-import { validationError } from "../utils/http-errors.js";
+import { conflict, notFound, validationError } from "../utils/http-errors.js";
 
 interface MenuItemParams {
   id: string;
 }
 
 const menuItemNotFound = (reply: FastifyReply) => {
-  return reply.status(404).send({
-    error: {
-      code: "MENU_ITEM_NOT_FOUND",
-      message: "Menu item not found",
-    },
-  });
+  return notFound(reply, "MENU_ITEM_NOT_FOUND", "Menu item not found");
 };
 
 const categoryNotFound = (reply: FastifyReply) => {
-  return reply.status(404).send({
-    error: {
-      code: "CATEGORY_NOT_FOUND",
-      message: "Category not found",
-    },
-  });
+  return notFound(reply, "CATEGORY_NOT_FOUND", "Category not found");
 };
 
 const menuItemNameAlreadyExists = (reply: FastifyReply) => {
-  return reply.status(409).send({
-    error: {
-      code: "MENU_ITEM_NAME_ALREADY_EXISTS",
-      message: "A menu item with this name already exists",
-    },
-  });
+  return conflict(
+    reply,
+    "MENU_ITEM_NAME_ALREADY_EXISTS",
+    "A menu item with this name already exists",
+  );
 };
 
 export const createMenuItemController = async (
