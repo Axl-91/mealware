@@ -3,6 +3,7 @@ import type { Users } from "./users.js";
 import type { Categories } from "./categories.js";
 import type { MenuItems } from "./menu-items.js";
 import type { Orders, OrderItems, OrderSequences } from "./orders.js";
+import type { Payments, Refunds } from "./payments.js";
 
 export interface Database {
   restaurants: Restaurants;
@@ -12,4 +13,6 @@ export interface Database {
   orders: Orders;
   order_items: OrderItems;
   order_sequences: OrderSequences;
+  payments: Payments;
+  refunds: Refunds;
 }
