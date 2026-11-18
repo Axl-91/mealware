@@ -15,7 +15,7 @@ src/
 ├── controllers/    # HTTP request handling
 ├── database/       # Database connection, types and migrations
 │   ├── migrations/
-│   └── type/
+│   └── types/
 ├── repositories/   # Database queries and transactions
 ├── routes/         # API route definitions
 ├── services/       # Business logic
@@ -27,8 +27,8 @@ src/
 
 ### Layers
 
-- **Routes:** Define HTTP endpoints and middleware.
-- **Controllers:** Validate requests and build HTTP responses.
+- **Routes:** Define HTTP endpoints, validation schemas, and middleware.
+- **Controllers:** Handle HTTP requests, validate input, and build responses.
 - **Services:** Handle business rules and coordinate operations.
 - **Repositories:** Encapsulate database queries, transactions, and locking.
 - **Auth:** Provide authentication and authorization mechanisms.
@@ -41,6 +41,9 @@ src/
 - PostgreSQL
 - Kysely
 - Zod
+- fastify-type-provider-zod
+- @fastify/swagger
+- @fastify/swagger-ui
 - Argon2
 - JWT
 - Vitest
@@ -54,22 +57,36 @@ All application endpoints are exposed under:
 /api/v1
 ```
 
+## API Documentation
+
+The API uses OpenAPI and Swagger UI for interactive API documentation.
+
+When running outside the test environment, the documentation is available at:
+
+```text
+http://localhost:3000/documentation
+```
+
+Swagger documentation is generated from route schemas using Zod and `fastify-type-provider-zod`.
+
+Documentation coverage is currently partial and will be expanded as the API evolves.
+
 ## Endpoints
 
 ### Health
 
-| Method | Endpoint               | Description                                   |
-| ------ | ---------------------- | --------------------------------------------- |
-| GET    | `/api/v1/health`       | Check API health                              |
-| GET    | `/api/v1/health/ready` | Check API readiness and database connectivity |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| GET | `/api/v1/health` | Check API health |
+| GET | `/api/v1/health/ready` | Check API readiness and database connectivity |
 
 ### Authentication
 
-| Method | Endpoint              | Description                |
-| ------ | --------------------- | -------------------------- |
-| POST   | `/api/v1/auth/login`  | Authenticate a user        |
-| GET    | `/api/v1/auth/me`     | Get the authenticated user |
-| POST   | `/api/v1/auth/logout` | Log out the current user   |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| POST | `/api/v1/auth/login` | Authenticate a user |
+| GET | `/api/v1/auth/me` | Get the authenticated user |
+| POST | `/api/v1/auth/logout` | Log out the current user |
 
 Authentication uses JWT stored in an HTTP-only cookie.
 
@@ -77,13 +94,13 @@ Authentication uses JWT stored in an HTTP-only cookie.
 
 All user management endpoints require the `ADMIN` role.
 
-| Method | Endpoint            | Description        |
-| ------ | ------------------- | ------------------ |
-| POST   | `/api/v1/users`     | Create an employee |
-| GET    | `/api/v1/users`     | List active users  |
-| GET    | `/api/v1/users/:id` | Get a user by ID   |
-| PUT    | `/api/v1/users/:id` | Update a user      |
-| DELETE | `/api/v1/users/:id` | Deactivate a user  |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| POST | `/api/v1/users` | Create an employee |
+| GET | `/api/v1/users` | List active users |
+| GET | `/api/v1/users/:id` | Get a user by ID |
+| PUT | `/api/v1/users/:id` | Update a user |
+| DELETE | `/api/v1/users/:id` | Deactivate a user |
 
 Users belong to a restaurant. All user management operations are scoped to the authenticated user's restaurant.
 
@@ -93,13 +110,13 @@ Categories are global resources shared across all restaurants.
 
 All authenticated users can create and view categories. Only the user who created a category can update or deactivate it.
 
-| Method | Endpoint                 | Description            |
-| ------ | ------------------------ | ---------------------- |
-| POST   | `/api/v1/categories`     | Create a category      |
-| GET    | `/api/v1/categories`     | List active categories |
-| GET    | `/api/v1/categories/:id` | Get a category by ID   |
-| PUT    | `/api/v1/categories/:id` | Update a category      |
-| DELETE | `/api/v1/categories/:id` | Deactivate a category  |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| POST | `/api/v1/categories` | Create a category |
+| GET | `/api/v1/categories` | List active categories |
+| GET | `/api/v1/categories/:id` | Get a category by ID |
+| PUT | `/api/v1/categories/:id` | Update a category |
+| DELETE | `/api/v1/categories/:id` | Deactivate a category |
 
 Category names are normalized and must be unique regardless of letter casing.
 
@@ -109,12 +126,12 @@ Menu items belong to a restaurant and reference a global category.
 
 All authenticated users can view menu items. Only users with the `ADMIN` role can create, update, or deactivate them.
 
-| Method | Endpoint                 | Description            |
-| ------ | ------------------------ | ---------------------- |
-| POST   | `/api/v1/menu-items`     | Create a menu item     |
-| GET    | `/api/v1/menu-items`     | List active menu items |
-| GET    | `/api/v1/menu-items/:id` | Get a menu item by ID  |
-| PUT    | `/api/v1/menu-items/:id` | Update a menu item     |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| POST | `/api/v1/menu-items` | Create a menu item |
+| GET | `/api/v1/menu-items` | List active menu items |
+| GET | `/api/v1/menu-items/:id` | Get a menu item by ID |
+| PUT | `/api/v1/menu-items/:id` | Update a menu item |
 | DELETE | `/api/v1/menu-items/:id` | Deactivate a menu item |
 
 Menu item names must be unique within each restaurant, regardless of letter casing.
@@ -127,13 +144,13 @@ Orders belong to a restaurant and contain one or more menu items.
 
 All authenticated users can create, view, update, and change the status of orders.
 
-| Method | Endpoint                    | Description            |
-| ------ | --------------------------- | ---------------------- |
-| POST   | `/api/v1/orders`            | Create an order        |
-| GET    | `/api/v1/orders`            | List orders            |
-| GET    | `/api/v1/orders/:id`        | Get an order by ID     |
-| PUT    | `/api/v1/orders/:id`        | Update an order        |
-| PUT    | `/api/v1/orders/:id/status` | Update an order status |
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| POST | `/api/v1/orders` | Create an order |
+| GET | `/api/v1/orders` | List orders |
+| GET | `/api/v1/orders/:id` | Get an order by ID |
+| PUT | `/api/v1/orders/:id` | Update an order |
+| PUT | `/api/v1/orders/:id/status` | Update an order status |
 
 Orders support two types:
 
@@ -159,6 +176,43 @@ READY     → COMPLETED
 ```
 
 `COMPLETED` and `CANCELLED` are terminal states.
+
+### Payments
+
+Payments belong to an order. An order can have multiple payments, allowing partial payments and different payment methods.
+
+Both `ADMIN` and `EMPLOYEE` users can register and view payments.
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| POST | `/api/v1/orders/:id/payments` | Register a payment for an order |
+| GET | `/api/v1/orders/:id/payments` | List payments for an order |
+
+Supported payment methods:
+
+- `CASH`
+- `DEBIT_CARD`
+- `CREDIT_CARD`
+- `TRANSFER`
+
+Payments can only be registered for orders with status `READY` or `COMPLETED`.
+
+The API prevents payments from exceeding the outstanding order balance.
+
+### Refunds
+
+Refunds belong to an individual payment. Multiple partial refunds are supported, as long as their cumulative amount does not exceed the original payment amount.
+
+Only users with the `ADMIN` role can create and view refunds.
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| POST | `/api/v1/payments/:id/refunds` | Create a refund for a payment |
+| GET | `/api/v1/payments/:id/refunds` | List refunds for a payment |
+
+Refunds increase the outstanding balance of the associated order. Additional payments can be registered afterward if the order is still eligible for payment.
+
+Payments and refunds are retained as financial records and are not deleted.
 
 ## Authentication
 
@@ -211,18 +265,18 @@ The API loads its environment variables through `src/config/env.ts`.
 
 Required environment variables:
 
-| Variable       | Description                  |
-| -------------- | ---------------------------- |
+| Variable | Description |
+| -------- | ----------- |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET`   | Secret used to sign JWTs     |
+| `JWT_SECRET` | Secret used to sign JWTs (minimum 32 characters) |
 
 Additional variables:
 
-| Variable            | Description                            |
-| ------------------- | -------------------------------------- |
-| `NODE_ENV`          | Application environment                |
-| `PORT`              | HTTP server port                       |
-| `HOST`              | HTTP server host                       |
+| Variable | Description |
+| -------- | ----------- |
+| `NODE_ENV` | Application environment (`development`, `production`, or `test`) |
+| `PORT` | HTTP server port (default: `3000`) |
+| `HOST` | HTTP server host (default: `0.0.0.0`) |
 | `TEST_DATABASE_URL` | PostgreSQL connection string for tests |
 
 ## Development
@@ -247,6 +301,12 @@ pnpm install
 ```bash
 pnpm --filter @mealware/shared build
 ```
+
+### Configure environment variables
+
+Create the required environment files and configure the database connection and JWT secret.
+
+The API validates its environment variables during startup.
 
 ### Start the development server
 
@@ -280,6 +340,14 @@ pnpm --filter @mealware/api test
 pnpm --filter @mealware/api test:watch
 ```
 
+### Run tests with coverage
+
+```bash
+pnpm --filter @mealware/api test:coverage
+```
+
+Tests use a dedicated PostgreSQL database configured through `TEST_DATABASE_URL`.
+
 ## Development Status
 
 Current backend functionality:
@@ -292,8 +360,11 @@ Current backend functionality:
 - [x] Global categories
 - [x] Initial database seed
 - [x] Menu items API implementation
-- [x] Orders API implementation
 - [x] Menu items tests
-- [ ] Orders tests
-- [ ] Payment management
-
+- [x] Orders API implementation
+- [x] Orders tests
+- [x] Payments API implementation
+- [x] Refunds API implementation
+- [x] Payments and refunds tests
+- [x] OpenAPI and Swagger UI integration
+- [ ] Complete API documentation
