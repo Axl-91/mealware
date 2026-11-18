@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import AuthLayout from "./layouts/auth-layout";
 import AppLayout from "./layouts/app-layout";
+import HealthPage from "@/features/health/pages/health-page";
 
 export const router = createBrowserRouter([
   {
@@ -9,6 +10,10 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: <div>Login</div>,
+      },
+      {
+        path: "health",
+        element: <HealthPage />,
       },
     ],
   },

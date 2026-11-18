@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { env } from "./config/env.js";
 import { routes } from "./routes.js";
+import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import swagger from "@fastify/swagger";
@@ -27,6 +28,11 @@ export const buildApp = async () => {
               },
             }
           : true,
+  });
+
+  await app.register(cors, {
+    origin: env.WEB_ORIGIN,
+    credentials: true,
   });
 
   app.setValidatorCompiler(validatorCompiler);
