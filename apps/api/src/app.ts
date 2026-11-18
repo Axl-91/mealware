@@ -5,6 +5,11 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import {
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from "fastify-type-provider-zod";
 
 export const buildApp = async () => {
   const app = Fastify({
@@ -23,6 +28,9 @@ export const buildApp = async () => {
             }
           : true,
   });
+
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
 
   await app.register(cookie);
 
@@ -57,6 +65,7 @@ export const buildApp = async () => {
           },
         },
       },
+      transform: jsonSchemaTransform,
     });
 
     await app.register(swaggerUi, {
