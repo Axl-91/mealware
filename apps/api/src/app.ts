@@ -3,6 +3,8 @@ import { env } from "./config/env.js";
 import { routes } from "./routes.js";
 import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 
 export const buildApp = async () => {
   const app = Fastify({
@@ -34,6 +36,33 @@ export const buildApp = async () => {
       expiresIn: "1h",
     },
   });
+
+  if (env.NODE_ENV !== "test") {
+    await app.register(swagger, {
+      openapi: {
+        openapi: "3.0.3",
+        info: {
+          title: "Mealware API",
+          description: "Restaurant management API",
+          version: "1.0.0",
+        },
+        components: {
+          securitySchemes: {
+            cookieAuth: {
+              type: "apiKey",
+              in: "cookie",
+              name: "mealware_token",
+              description: "JWT authentication cookie",
+            },
+          },
+        },
+      },
+    });
+
+    await app.register(swaggerUi, {
+      routePrefix: "/documentation",
+    });
+  }
 
   await app.register(routes);
 
