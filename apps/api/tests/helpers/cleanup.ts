@@ -18,6 +18,18 @@ export const cleanupTestData = async ({
   restaurantIds = [],
 }: CleanupTestDataInput = {}) => {
   if (orderIds.length > 0) {
+    const payments = db
+      .selectFrom("payments")
+      .select("id")
+      .where("order_id", "in", orderIds);
+
+    await db
+      .deleteFrom("refunds")
+      .where("payment_id", "in", payments)
+      .execute();
+
+    await db.deleteFrom("payments").where("order_id", "in", orderIds).execute();
+
     await db.deleteFrom("orders").where("id", "in", orderIds).execute();
   }
 

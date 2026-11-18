@@ -93,13 +93,29 @@ export const getPaymentsByOrder = async ({
   orderId,
   restaurantId,
 }: GetPaymentsByOrderInput) => {
-  return db
+  const order = await db
+    .selectFrom("orders")
+    .select("id")
+    .where("id", "=", orderId)
+    .where("restaurant_id", "=", restaurantId)
+    .executeTakeFirst();
+
+  if (!order) {
+    return { status: "order_not_found" as const };
+  }
+
+  const payments = await db
     .selectFrom("payments")
     .selectAll()
     .where("order_id", "=", orderId)
     .where("restaurant_id", "=", restaurantId)
     .orderBy("created_at", "asc")
     .execute();
+
+  return {
+    status: "found" as const,
+    payments,
+  };
 };
 
 interface CreateRefundRepositoryInput extends CreateRefundInput {
