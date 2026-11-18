@@ -139,13 +139,21 @@ export const createRefundController = async (
 };
 
 export const getRefundsByPaymentController = async (
-  request: FastifyRequest<{ Params: PaymentParams }>,
+  request: FastifyRequest<{
+    Params: PaymentParams;
+  }>,
   reply: FastifyReply,
 ) => {
-  const refunds = await paymentsService.getRefundsByPayment({
+  const result = await paymentsService.getRefundsByPayment({
     paymentId: request.params.id,
     restaurantId: request.user.restaurantId,
   });
 
-  return reply.status(200).send({ refunds });
+  if (result.status === "payment_not_found") {
+    return paymentNotFound(reply);
+  }
+
+  return reply.status(200).send({
+    refunds: result.refunds,
+  });
 };

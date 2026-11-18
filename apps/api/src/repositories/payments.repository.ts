@@ -2,6 +2,10 @@ import type { CreatePaymentInput, CreateRefundInput } from "@mealware/shared";
 import { sql } from "kysely";
 import { db } from "../database/database.js";
 
+const toCents = (amount: string | number): number => {
+  return Math.round(Number(amount) * 100);
+};
+
 interface CreatePaymentRepositoryInput extends CreatePaymentInput {
   orderId: string;
   restaurantId: string;
@@ -209,18 +213,27 @@ export const getRefundsByPayment = async ({
   paymentId,
   restaurantId,
 }: GetRefundsByPaymentInput) => {
-  return db
+  const payment = await db
+    .selectFrom("payments")
+    .select("id")
+    .where("id", "=", paymentId)
+    .where("restaurant_id", "=", restaurantId)
+    .executeTakeFirst();
+
+  if (!payment) {
+    return { status: "payment_not_found" as const };
+  }
+
+  const refunds = await db
     .selectFrom("refunds")
     .selectAll()
     .where("payment_id", "=", paymentId)
     .where("restaurant_id", "=", restaurantId)
     .orderBy("created_at", "asc")
     .execute();
-};
 
-const toCents = (amount: string): number => {
-  const [integerPart, decimalPart = ""] = amount.split(".");
-  return (
-    Number(integerPart) * 100 + Number(decimalPart.padEnd(2, "0").slice(0, 2))
-  );
+  return {
+    status: "found" as const,
+    refunds,
+  };
 };
