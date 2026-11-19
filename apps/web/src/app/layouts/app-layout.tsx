@@ -1,11 +1,32 @@
-import { useNavigate, Outlet } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLogout } from "@/features/auth/hooks/use-auth";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/shared/app-sidebar";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { useLogout } from "@/features/auth/hooks/use-auth";
 
 function AppLayout() {
   const navigate = useNavigate();
   const logoutMutation = useLogout();
+
+  const location = useLocation();
+
+  const pageTitles: Record<string, string> = {
+    "/": "Dashboard",
+    "/health": "Estado del sistema",
+    "/orders": "Pedidos",
+    "/menu-items": "Productos",
+    "/categories": "Categorías",
+    "/payments": "Pagos",
+    "/users": "Usuarios",
+  };
+
+  const pageTitle = pageTitles[location.pathname] ?? "Mealware";
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
@@ -16,27 +37,38 @@ function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-        <h1 className="text-xl font-bold">Mealware</h1>
+    <SidebarProvider>
+      <AppSidebar />
 
-        <div className="flex items-center gap-6">
-          <ThemeToggle />
+      <SidebarInset>
+        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 md:px-6">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger />
 
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            disabled={logoutMutation.isPending}
-          >
-            {logoutMutation.isPending ? "Cerrando sesión..." : "Cerrar sesión"}
-          </Button>
-        </div>
-      </header>
+            <h1 className="text-xl font-bold">{pageTitle}</h1>
+          </div>
 
-      <main className="p-6">
-        <Outlet />
-      </main>
-    </div>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleLogout}
+              disabled={logoutMutation.isPending}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+            >
+              <LogOut />
+            </Button>
+          </div>
+        </header>
+
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
