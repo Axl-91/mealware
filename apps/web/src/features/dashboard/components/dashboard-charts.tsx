@@ -76,7 +76,7 @@ export function DashboardCharts() {
           </CardContent>
         </Card>
       ) : isPending ? (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
           {Array.from({ length: 4 }, (_, index) => (
             <Card key={index}>
               <CardContent className="space-y-4 pt-6">
@@ -87,7 +87,7 @@ export function DashboardCharts() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
           <SalesChart data={charts?.sales} isLoading={false} />
 
           <OrdersByStatusChart

@@ -1,12 +1,18 @@
+
 import {
+  Activity,
+  CreditCard,
+  Layers,
   LayoutDashboard,
   ShoppingBag,
   Utensils,
-  Layers,
-  CreditCard,
   Users,
+  UserRound,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { USER_ROLES } from "@mealware/shared";
 import { NavLink, useLocation } from "react-router";
+import { useAuth } from "@/features/auth/hooks/use-auth";
 import {
   Sidebar,
   SidebarContent,
@@ -19,7 +25,19 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const navigation = [
+type NavigationItem = {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  adminOnly?: boolean;
+};
+
+type NavigationGroup = {
+  title: string;
+  items: NavigationItem[];
+};
+
+const navigation: NavigationGroup[] = [
   {
     title: "General",
     items: [
@@ -34,12 +52,25 @@ const navigation = [
     items: [
       { title: "Pagos", url: "/payments", icon: CreditCard },
       { title: "Usuarios", url: "/users", icon: Users },
+      {
+        title: "Estado del sistema",
+        url: "/health",
+        icon: Activity,
+        adminOnly: true,
+      },
     ],
+  },
+  {
+    title: "Mi cuenta",
+    items: [{ title: "Mi Perfil", url: "/account", icon: UserRound }],
   },
 ];
 
 export function AppSidebar() {
   const { pathname } = useLocation();
+  const { data } = useAuth();
+
+  const isAdmin = data?.user.role === USER_ROLES.ADMIN;
 
   const isRouteActive = (url: string) =>
     url === "/"
@@ -60,30 +91,40 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {navigation.map((group) => (
-          <SidebarGroup key={group.title}>
-            <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+        {navigation.map((group) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.adminOnly || isAdmin,
+          );
 
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => (
-                  <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip={item.title}
-                      isActive={isRouteActive(item.url)}
-                    >
-                      <NavLink to={item.url} end={item.url === "/"}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+          if (visibleItems.length === 0) {
+            return null;
+          }
+
+          return (
+            <SidebarGroup key={group.title}>
+              <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleItems.map((item) => (
+                    <SidebarMenuItem key={item.url}>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip={item.title}
+                        isActive={isRouteActive(item.url)}
+                      >
+                        <NavLink to={item.url} end={item.url === "/"}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
     </Sidebar>
   );

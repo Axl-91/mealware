@@ -6,6 +6,7 @@ import NotFoundPage from "@/app/pages/not-found-page";
 import { LoginPage } from "@/features/auth/pages/login-page";
 import { ProtectedRoute } from "@/features/auth/components/protected-route";
 import { PublicRoute } from "@/features/auth/components/public-route";
+import { AdminRoute } from "@/features/auth/components/admin-route";
 import DashboardPage from "@/features/dashboard/pages/dashboard-page";
 
 export const router = createBrowserRouter([
@@ -35,8 +36,13 @@ export const router = createBrowserRouter([
             element: <DashboardPage />,
           },
           {
-            path: "health",
-            element: <HealthPage />,
+            element: <AdminRoute />,
+            children: [
+              {
+                path: "health",
+                element: <HealthPage />,
+              },
+            ],
           },
         ],
       },
