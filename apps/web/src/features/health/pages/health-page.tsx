@@ -7,8 +7,7 @@ function HealthPage() {
   const readiness = useReadiness();
 
   const apiIsHealthy = health.data?.status === "ok";
-  const databaseIsHealthy =
-    readiness.data?.checks.database === "ok";
+  const databaseIsHealthy = readiness.data?.checks.database === "ok";
 
   const isLoading = health.isPending || readiness.isPending;
 
@@ -33,87 +32,79 @@ function HealthPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-4xl space-y-8">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Estado del sistema
-          </h1>
-          <p className="text-muted-foreground">
-            Monitoreo de los servicios de Mealware.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>API</CardTitle>
-            </CardHeader>
-
-            <CardContent>
-              <p
-                className={`text-lg font-semibold ${getStatusColor(
-                  health.isPending,
-                  apiIsHealthy,
-                  health.isError,
-                )}`}
-              >
-                {getStatus(
-                  health.isPending,
-                  apiIsHealthy,
-                  health.isError,
-                )}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Base de datos</CardTitle>
-            </CardHeader>
-
-            <CardContent>
-              <p
-                className={`text-lg font-semibold ${getStatusColor(
-                  readiness.isPending,
-                  databaseIsHealthy,
-                  readiness.isError,
-                )}`}
-              >
-                {getStatus(
-                  readiness.isPending,
-                  databaseIsHealthy,
-                  readiness.isError,
-                )}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Actualización automática cada 30 segundos.
-          </p>
-
-          <Button
-            variant="outline"
-            onClick={() => {
-              void health.refetch();
-              void readiness.refetch();
-            }}
-            disabled={health.isFetching || readiness.isFetching}
-          >
-            Actualizar ahora
-          </Button>
-        </div>
-
-        {isLoading && (
-          <p className="text-sm text-muted-foreground">
-            Comprobando servicios...
-          </p>
-        )}
+    <div className="mx-auto w-full max-w-4xl space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Estado del sistema
+        </h1>
+        <p className="text-muted-foreground">
+          Monitoreo de los servicios de Mealware.
+        </p>
       </div>
-    </main>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>API</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              className={`text-lg font-semibold ${getStatusColor(
+                health.isPending,
+                apiIsHealthy,
+                health.isError,
+              )}`}
+            >
+              {getStatus(health.isPending, apiIsHealthy, health.isError)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Base de datos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              className={`text-lg font-semibold ${getStatusColor(
+                readiness.isPending,
+                databaseIsHealthy,
+                readiness.isError,
+              )}`}
+            >
+              {getStatus(
+                readiness.isPending,
+                databaseIsHealthy,
+                readiness.isError,
+              )}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          Actualización automática cada 30 segundos.
+        </p>
+
+        <Button
+          variant="outline"
+          onClick={() => {
+            void health.refetch();
+            void readiness.refetch();
+          }}
+          disabled={health.isFetching || readiness.isFetching}
+        >
+          Actualizar ahora
+        </Button>
+      </div>
+
+      {isLoading && (
+        <p className="text-sm text-muted-foreground">
+          Comprobando servicios...
+        </p>
+      )}
+    </div>
   );
 }
 

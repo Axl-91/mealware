@@ -6,6 +6,7 @@ import { categoriesRoutes } from "./routes/categories.js";
 import { menuItemsRoutes } from "./routes/menu-items.js";
 import { ordersRoutes } from "./routes/orders.js";
 import { paymentsRoutes } from "./routes/payments.js";
+import { dashboardRoutes } from "./routes/dashboard.js";
 
 export const routes: FastifyPluginAsync = async (app) => {
   await app.register(
@@ -32,6 +33,10 @@ export const routes: FastifyPluginAsync = async (app) => {
 
       await api.register(ordersRoutes, {
         prefix: "/orders",
+      });
+
+      await api.register(dashboardRoutes, {
+        prefix: "/dashboard",
       });
 
       await api.register(paymentsRoutes);

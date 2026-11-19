@@ -41,7 +41,7 @@ function AppLayout() {
       <AppSidebar />
 
       <SidebarInset>
-        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 md:px-6">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-2 md:px-4">
           <div className="flex items-center gap-3">
             <SidebarTrigger />
 
