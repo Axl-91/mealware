@@ -33,6 +33,7 @@ export const buildApp = async () => {
   await app.register(cors, {
     origin: env.WEB_ORIGIN,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   });
 
   app.setValidatorCompiler(validatorCompiler);

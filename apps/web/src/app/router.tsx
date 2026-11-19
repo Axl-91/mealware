@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/features/auth/components/protected-route";
 import { PublicRoute } from "@/features/auth/components/public-route";
 import { AdminRoute } from "@/features/auth/components/admin-route";
 import DashboardPage from "@/features/dashboard/pages/dashboard-page";
+import CategoriesPage from "@/features/categories/pages/categories-page";
 
 export const router = createBrowserRouter([
   {
@@ -34,6 +35,10 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <DashboardPage />,
+          },
+          {
+            path: "categories",
+            element: <CategoriesPage />,
           },
           {
             element: <AdminRoute />,
