@@ -6,6 +6,7 @@ import {
   getCategoryByIdController,
   updateCategoryController,
   deactivateCategoryController,
+  reactivateCategoryController,
 } from "../controllers/categories.controller.js";
 
 export const categoriesRoutes: FastifyPluginAsync = async (app) => {
@@ -16,8 +17,15 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   // POST /categories - Create category
   app.post("/", authenticated, createCategoryController);
 
-  // GET /categories - List active categories
-  app.get("/", authenticated, getCategoriesController);
+  // GET /categories - List categories with pagination and filters
+  app.get<{
+    Querystring: {
+      page?: string;
+      limit?: string;
+      search?: string;
+      status?: string;
+    };
+  }>("/", authenticated, getCategoriesController);
 
   // GET /categories/:id - Get category by ID
   app.get<{ Params: { id: string } }>(
@@ -38,5 +46,12 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
     "/:id",
     authenticated,
     deactivateCategoryController,
+  );
+
+  // PUT /categories/:id/reactivate - Reactivate category
+  app.put<{ Params: { id: string } }>(
+    "/:id/reactivate",
+    authenticated,
+    reactivateCategoryController,
   );
 };
