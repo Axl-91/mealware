@@ -9,6 +9,7 @@ import { PublicRoute } from "@/features/auth/components/public-route";
 import { AdminRoute } from "@/features/auth/components/admin-route";
 import DashboardPage from "@/features/dashboard/pages/dashboard-page";
 import CategoriesPage from "@/features/categories/pages/categories-page";
+import MenuItemsPage from "@/features/menu-items/pages/menu-items-page";
 
 export const router = createBrowserRouter([
   {
@@ -35,6 +36,10 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <DashboardPage />,
+          },
+          {
+            path: "menu-items",
+            element: <MenuItemsPage />,
           },
           {
             path: "categories",

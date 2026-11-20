@@ -7,15 +7,17 @@ import {
   createMenuItem,
   deactivateMenuItem,
   getMenuItems,
+  reactivateMenuItem,
   updateMenuItem,
+  type MenuItemStatus,
 } from "../api/menu-items-api";
 
 export const MENU_ITEMS_QUERY_KEY = ["menu-items"];
 
-export function useMenuItems() {
+export function useMenuItems(status: MenuItemStatus = "active") {
   return useQuery({
-    queryKey: MENU_ITEMS_QUERY_KEY,
-    queryFn: getMenuItems,
+    queryKey: [...MENU_ITEMS_QUERY_KEY, status],
+    queryFn: () => getMenuItems(status),
   });
 }
 
@@ -56,6 +58,19 @@ export function useDeactivateMenuItem() {
 
   return useMutation({
     mutationFn: (menuItemId: string) => deactivateMenuItem(menuItemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: MENU_ITEMS_QUERY_KEY,
+      });
+    },
+  });
+}
+
+export function useReactivateMenuItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (menuItemId: string) => reactivateMenuItem(menuItemId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: MENU_ITEMS_QUERY_KEY,

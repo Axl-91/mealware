@@ -46,7 +46,7 @@ export function CategoryTable({
   return (
     <div className="rounded-md border">
       <Table>
-        <TableHeader>
+        <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead>Nombre</TableHead>
             <TableHead>Fecha de creación</TableHead>

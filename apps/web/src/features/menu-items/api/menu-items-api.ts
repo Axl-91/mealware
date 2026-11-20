@@ -4,6 +4,8 @@ import type {
 } from "@mealware/shared";
 import { apiRequest } from "@/lib/api";
 
+export type MenuItemStatus = "active" | "archived" | "all";
+
 export interface MenuItem {
   id: string;
   restaurant_id: string;
@@ -37,8 +39,8 @@ export interface MenuItemActionResponse {
   message: string;
 }
 
-export const getMenuItems = () =>
-  apiRequest<GetMenuItemsResponse>("/menu-items");
+export const getMenuItems = (status: MenuItemStatus = "active") =>
+  apiRequest<GetMenuItemsResponse>(`/menu-items?status=${status}`);
 
 export const getMenuItemById = (menuItemId: string) =>
   apiRequest<GetMenuItemResponse>(`/menu-items/${menuItemId}`);
@@ -61,4 +63,9 @@ export const updateMenuItem = (
 export const deactivateMenuItem = (menuItemId: string) =>
   apiRequest<MenuItemActionResponse>(`/menu-items/${menuItemId}`, {
     method: "DELETE",
+  });
+
+export const reactivateMenuItem = (menuItemId: string) =>
+  apiRequest<MenuItemActionResponse>(`/menu-items/${menuItemId}/reactivate`, {
+    method: "PUT",
   });
