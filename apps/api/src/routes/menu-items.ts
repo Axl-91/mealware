@@ -8,6 +8,7 @@ import {
   getMenuItemByIdController,
   updateMenuItemController,
   deactivateMenuItemController,
+  reactivateMenuItemController,
 } from "../controllers/menu-items.controller.js";
 
 export const menuItemsRoutes: FastifyPluginAsync = async (app) => {
@@ -20,7 +21,7 @@ export const menuItemsRoutes: FastifyPluginAsync = async (app) => {
   // POST /menu-items - Create menu item (ADMIN only)
   app.post("/", adminOnly, createMenuItemController);
 
-  // GET /menu-items - List active menu items (ADMIN and EMPLOYEE)
+  // GET /menu-items - List menu items (ADMIN and EMPLOYEE)
   app.get("/", authenticated, getMenuItemsController);
 
   // GET /menu-items/:id - Get menu item by ID (ADMIN and EMPLOYEE)
@@ -42,5 +43,12 @@ export const menuItemsRoutes: FastifyPluginAsync = async (app) => {
     "/:id",
     adminOnly,
     deactivateMenuItemController,
+  );
+
+  // PUT /menu-items/:id/reactivate - Reactivate menu item (ADMIN only)
+  app.put<{ Params: { id: string } }>(
+    "/:id/reactivate",
+    adminOnly,
+    reactivateMenuItemController,
   );
 };

@@ -14,8 +14,16 @@ interface UpdateMenuItemRepositoryInput extends UpdateMenuItemInput {
   restaurantId: string;
 }
 
+interface ReactivateMenuItemInput {
+  menuItemId: string;
+  restaurantId: string;
+}
+
+type MenuItemStatus = "active" | "archived" | "all";
+
 interface GetMenuItemsInput {
   restaurantId: string;
+  status?: MenuItemStatus;
 }
 
 interface GetMenuItemByIdInput {
@@ -72,14 +80,22 @@ export const createMenuItem = async ({
   }
 };
 
-export const getMenuItems = async ({ restaurantId }: GetMenuItemsInput) => {
-  return db
+export const getMenuItems = async ({
+  restaurantId,
+  status = "active",
+}: GetMenuItemsInput) => {
+  let query = db
     .selectFrom("menu_items")
     .selectAll()
-    .where("restaurant_id", "=", restaurantId)
-    .where("is_active", "=", true)
-    .orderBy("name", "asc")
-    .execute();
+    .where("restaurant_id", "=", restaurantId);
+
+  if (status === "active") {
+    query = query.where("is_active", "=", true);
+  } else if (status === "archived") {
+    query = query.where("is_active", "=", false);
+  }
+
+  return query.orderBy("name", "asc").execute();
 };
 
 export const getMenuItemById = async ({
@@ -176,4 +192,39 @@ export const deactivateMenuItem = async ({
   }
 
   return { status: "deactivated" as const };
+};
+
+export const reactivateMenuItem = async ({
+  menuItemId,
+  restaurantId,
+}: ReactivateMenuItemInput) => {
+  const existingMenuItem = await db
+    .selectFrom("menu_items")
+    .innerJoin("categories", "categories.id", "menu_items.category_id")
+    .select(["menu_items.id", "categories.is_active as category_is_active"])
+    .where("menu_items.id", "=", menuItemId)
+    .where("menu_items.restaurant_id", "=", restaurantId)
+    .where("menu_items.is_active", "=", false)
+    .executeTakeFirst();
+
+  if (!existingMenuItem) {
+    return { status: "not_found" as const };
+  }
+
+  if (!existingMenuItem.category_is_active) {
+    return { status: "category_archived" as const };
+  }
+
+  await db
+    .updateTable("menu_items")
+    .set({
+      is_active: true,
+      updated_at: new Date(),
+    })
+    .where("id", "=", menuItemId)
+    .where("restaurant_id", "=", restaurantId)
+    .where("is_active", "=", false)
+    .executeTakeFirst();
+
+  return { status: "reactivated" as const };
 };

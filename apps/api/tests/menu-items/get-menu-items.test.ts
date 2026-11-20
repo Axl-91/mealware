@@ -128,7 +128,7 @@ describe("GET /api/v1/menu-items", () => {
     await db.destroy();
   });
 
-  it("should return active menu items belonging to the admin's restaurant", async () => {
+  it("should return active menu items belonging to the admin's restaurant by default", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/v1/menu-items",
@@ -153,6 +153,91 @@ describe("GET /api/v1/menu-items", () => {
           menuItem.restaurant_id === admin.user.restaurant_id,
       ),
     ).toBe(true);
+  });
+
+  it("should return active menu items when status=active", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/menu-items?status=active",
+      headers: { cookie: admin.cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const { menuItems } = response.json();
+    const returnedMenuItemIds = menuItems.map(
+      (menuItem: { id: string }) => menuItem.id,
+    );
+
+    expect(returnedMenuItemIds).toContain(availableMenuItemId);
+    expect(returnedMenuItemIds).toContain(unavailableMenuItemId);
+    expect(returnedMenuItemIds).not.toContain(inactiveMenuItemId);
+    expect(returnedMenuItemIds).not.toContain(otherRestaurantMenuItemId);
+  });
+
+  it("should return archived menu items when status=archived", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/menu-items?status=archived",
+      headers: { cookie: admin.cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const { menuItems } = response.json();
+    const returnedMenuItemIds = menuItems.map(
+      (menuItem: { id: string }) => menuItem.id,
+    );
+
+    expect(returnedMenuItemIds).toContain(inactiveMenuItemId);
+    expect(returnedMenuItemIds).not.toContain(availableMenuItemId);
+    expect(returnedMenuItemIds).not.toContain(unavailableMenuItemId);
+    expect(returnedMenuItemIds).not.toContain(otherRestaurantMenuItemId);
+
+    expect(
+      menuItems.every(
+        (menuItem: { restaurant_id: string; is_active: boolean }) =>
+          menuItem.restaurant_id === admin.user.restaurant_id &&
+          menuItem.is_active === false,
+      ),
+    ).toBe(true);
+  });
+
+  it("should return active and archived menu items when status=all", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/menu-items?status=all",
+      headers: { cookie: admin.cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const { menuItems } = response.json();
+    const returnedMenuItemIds = menuItems.map(
+      (menuItem: { id: string }) => menuItem.id,
+    );
+
+    expect(returnedMenuItemIds).toContain(availableMenuItemId);
+    expect(returnedMenuItemIds).toContain(unavailableMenuItemId);
+    expect(returnedMenuItemIds).toContain(inactiveMenuItemId);
+    expect(returnedMenuItemIds).not.toContain(otherRestaurantMenuItemId);
+
+    expect(
+      menuItems.every(
+        (menuItem: { restaurant_id: string }) =>
+          menuItem.restaurant_id === admin.user.restaurant_id,
+      ),
+    ).toBe(true);
+  });
+
+  it("should return 400 when status is invalid", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/menu-items?status=invalid",
+      headers: { cookie: admin.cookie },
+    });
+
+    expect(response.statusCode).toBe(400);
   });
 
   it("should return active menu items belonging to the employee's restaurant", async () => {
