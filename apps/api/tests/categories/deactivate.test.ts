@@ -5,6 +5,7 @@ import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
 import { createTestUserWithAuth } from "../helpers/create-test-user.js";
+import { randomPrice } from "../helpers/random.js";
 
 describe("DELETE /api/v1/categories/:id", () => {
   const appPromise = buildApp();
@@ -17,8 +18,11 @@ describe("DELETE /api/v1/categories/:id", () => {
   let employeeCategoryId: string;
   let forbiddenCategoryId: string;
   let inactiveCategoryId: string;
+  let categoryWithActiveItemId: string;
+  let categoryWithInactiveItemId: string;
 
   const categoryIds: string[] = [];
+  const menuItemIds: string[] = [];
 
   const createCategory = async (name: string, cookie: string) => {
     const response = await app.inject({
@@ -38,6 +42,32 @@ describe("DELETE /api/v1/categories/:id", () => {
     categoryIds.push(category.id);
 
     return category;
+  };
+
+  const createMenuItem = async ({
+    categoryId,
+    isActive,
+  }: {
+    categoryId: string;
+    isActive: boolean;
+  }) => {
+    const menuItem = await db
+      .insertInto("menu_items")
+      .values({
+        restaurant_id: employee.user.restaurant_id,
+        category_id: categoryId,
+        name: `Test menu item ${randomUUID()}`,
+        description: null,
+        price: randomPrice().toFixed(2),
+        is_available: true,
+        is_active: isActive,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    menuItemIds.push(menuItem.id);
+
+    return menuItem;
   };
 
   const deactivateCategory = async (categoryId: string, cookie: string) => {
@@ -80,6 +110,30 @@ describe("DELETE /api/v1/categories/:id", () => {
 
     inactiveCategoryId = inactiveCategory.id;
 
+    const categoryWithActiveItem = await createCategory(
+      `Category with active item ${randomUUID()}`,
+      employee.cookie,
+    );
+
+    categoryWithActiveItemId = categoryWithActiveItem.id;
+
+    await createMenuItem({
+      categoryId: categoryWithActiveItemId,
+      isActive: true,
+    });
+
+    const categoryWithInactiveItem = await createCategory(
+      `Category with inactive item ${randomUUID()}`,
+      employee.cookie,
+    );
+
+    categoryWithInactiveItemId = categoryWithInactiveItem.id;
+
+    await createMenuItem({
+      categoryId: categoryWithInactiveItemId,
+      isActive: false,
+    });
+
     const deactivateResponse = await deactivateCategory(
       inactiveCategoryId,
       employee.cookie,
@@ -89,7 +143,10 @@ describe("DELETE /api/v1/categories/:id", () => {
   });
 
   afterAll(async () => {
-    await cleanupTestData({ categoryIds });
+    await cleanupTestData({
+      menuItemIds,
+      categoryIds,
+    });
 
     await employee.cleanup();
     await admin.cleanup();
@@ -146,6 +203,52 @@ describe("DELETE /api/v1/categories/:id", () => {
     );
 
     expect(response.statusCode).toBe(403);
+  });
+
+  it("should return 409 when the category has active menu items", async () => {
+    const response = await deactivateCategory(
+      categoryWithActiveItemId,
+      employee.cookie,
+    );
+
+    expect(response.statusCode).toBe(409);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "CATEGORY_IN_USE",
+        message:
+          "Category cannot be deactivated because it has active menu items",
+      },
+    });
+
+    const category = await db
+      .selectFrom("categories")
+      .select(["id", "is_active"])
+      .where("id", "=", categoryWithActiveItemId)
+      .executeTakeFirstOrThrow();
+
+    expect(category.is_active).toBe(true);
+  });
+
+  it("should deactivate a category when it only has inactive menu items", async () => {
+    const response = await deactivateCategory(
+      categoryWithInactiveItemId,
+      employee.cookie,
+    );
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.json()).toMatchObject({
+      message: "Category deactivated successfully",
+    });
+
+    const category = await db
+      .selectFrom("categories")
+      .select(["id", "is_active"])
+      .where("id", "=", categoryWithInactiveItemId)
+      .executeTakeFirstOrThrow();
+
+    expect(category.is_active).toBe(false);
   });
 
   it("should return 404 when the category does not exist", async () => {
