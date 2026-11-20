@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useCategories } from "@/features/categories/hooks/use-categories";
 import { MenuItemDialog } from "../components/menu-item-dialog";
 import { MenuItemTable } from "../components/menu-item-table";
 import {
@@ -54,10 +55,38 @@ function MenuItemsPage() {
     isFetching,
   } = useMenuItems(status);
 
+  const {
+    data: activeCategoriesData,
+    isPending: isActiveCategoriesPending,
+    isError: isActiveCategoriesError,
+  } = useCategories({
+    page: 1,
+    limit: 100,
+    status: "active",
+  });
+
+  const {
+    data: archivedCategoriesData,
+    isPending: isArchivedCategoriesPending,
+    isError: isArchivedCategoriesError,
+  } = useCategories({
+    page: 1,
+    limit: 100,
+    status: "archived",
+  });
+
   const deactivateMutation = useDeactivateMenuItem();
   const reactivateMutation = useReactivateMenuItem();
 
   const menuItems = data?.menuItems ?? [];
+
+  const categories = useMemo(
+    () => [
+      ...(activeCategoriesData?.categories ?? []),
+      ...(archivedCategoriesData?.categories ?? []),
+    ],
+    [activeCategoriesData, archivedCategoriesData],
+  );
 
   const filteredMenuItems = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase();
@@ -74,6 +103,43 @@ function MenuItemsPage() {
       );
     });
   }, [menuItems, search]);
+
+  const groupedMenuItems = useMemo(() => {
+    const categoryNames = new Map(
+      categories.map((category) => [category.id, category.name]),
+    );
+
+    const groups = new Map<
+      string,
+      { categoryName: string; menuItems: MenuItem[] }
+    >();
+
+    for (const menuItem of filteredMenuItems) {
+      const categoryName =
+        categoryNames.get(menuItem.category_id) ??
+        "Categoría no disponible";
+
+      const group = groups.get(menuItem.category_id);
+
+      if (group) {
+        group.menuItems.push(menuItem);
+      } else {
+        groups.set(menuItem.category_id, {
+          categoryName,
+          menuItems: [menuItem],
+        });
+      }
+    }
+
+    return [...groups.entries()]
+      .map(([categoryId, group]) => ({
+        categoryId,
+        ...group,
+      }))
+      .sort((a, b) =>
+        a.categoryName.localeCompare(b.categoryName, "es"),
+      );
+  }, [categories, filteredMenuItems]);
 
   const handleStatusChange = (value: string) => {
     setStatus(value as MenuItemListStatus);
@@ -120,6 +186,12 @@ function MenuItemsPage() {
       );
     }
   };
+
+  const isCategoriesLoading =
+    isActiveCategoriesPending || isArchivedCategoriesPending;
+
+  const hasCategoriesError =
+    isActiveCategoriesError || isArchivedCategoriesError;
 
   return (
     <div className="space-y-6">
@@ -179,18 +251,39 @@ function MenuItemsPage() {
             Reintentar
           </Button>
         </div>
+      ) : hasCategoriesError ? (
+        <p className="text-sm text-destructive">
+          No se pudieron cargar las categorías.
+        </p>
+      ) : isPending || isCategoriesLoading ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Cargando productos...
+        </p>
+      ) : groupedMenuItems.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No se encontraron productos.
+        </p>
       ) : (
-        <MenuItemTable
-          menuItems={filteredMenuItems}
-          isLoading={isPending}
-          isReactivating={reactivateMutation.isPending}
-          onEdit={handleEdit}
-          onArchive={(menuItem) => {
-            setActionError("");
-            setMenuItemToArchive(menuItem);
-          }}
-          onReactivate={handleReactivate}
-        />
+        <div className="space-y-8">
+          {groupedMenuItems.map((group) => (
+            <section key={group.categoryId} className="space-y-3">
+              <h2 className="text-lg font-semibold tracking-tight">
+                {group.categoryName}
+              </h2>
+
+              <MenuItemTable
+                menuItems={group.menuItems}
+                isReactivating={reactivateMutation.isPending}
+                onEdit={handleEdit}
+                onArchive={(menuItem) => {
+                  setActionError("");
+                  setMenuItemToArchive(menuItem);
+                }}
+                onReactivate={handleReactivate}
+              />
+            </section>
+          ))}
+        </div>
       )}
 
       <MenuItemDialog
