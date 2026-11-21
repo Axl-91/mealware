@@ -1,15 +1,18 @@
 import { createBrowserRouter } from "react-router";
 import AuthLayout from "./layouts/auth-layout";
 import AppLayout from "./layouts/app-layout";
-import HealthPage from "@/features/health/pages/health-page";
-import NotFoundPage from "@/app/pages/not-found-page";
+
 import { LoginPage } from "@/features/auth/pages/login-page";
 import { ProtectedRoute } from "@/features/auth/components/protected-route";
 import { PublicRoute } from "@/features/auth/components/public-route";
 import { AdminRoute } from "@/features/auth/components/admin-route";
+
+import NotFoundPage from "@/app/pages/not-found-page";
+import HealthPage from "@/features/health/pages/health-page";
 import DashboardPage from "@/features/dashboard/pages/dashboard-page";
 import CategoriesPage from "@/features/categories/pages/categories-page";
 import MenuItemsPage from "@/features/menu-items/pages/menu-items-page";
+import OrdersPage from "@/features/orders/pages/orders-page";
 
 export const router = createBrowserRouter([
   {
@@ -36,6 +39,10 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <DashboardPage />,
+          },
+          {
+            path: "orders",
+            element: <OrdersPage />,
           },
           {
             path: "menu-items",
