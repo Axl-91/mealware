@@ -366,4 +366,30 @@ describe("POST /api/v1/payments/:id/refunds", () => {
 
     expect(response.statusCode).toBe(401);
   });
+
+  it("should return 409 when trying to refund a payment from a cancelled order", async () => {
+    const { order, payment, paymentAmount } = await createPaidOrder();
+
+    await db
+      .updateTable("orders")
+      .set({ status: ORDER_STATUSES.CANCELLED })
+      .where("id", "=", order.id)
+      .execute();
+
+    const response = await createRefund(payment.id, admin.cookie, {
+      amount: paymentAmount,
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe("ORDER_CANCELLED");
+
+    const refundsResponse = await app.inject({
+      method: "GET",
+      url: `/api/v1/payments/${payment.id}/refunds`,
+      headers: { cookie: admin.cookie },
+    });
+
+    expect(refundsResponse.statusCode).toBe(200);
+    expect(refundsResponse.json().refunds).toHaveLength(0);
+  });
 });

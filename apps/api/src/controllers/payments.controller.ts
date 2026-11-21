@@ -44,6 +44,14 @@ const amountExceedsRefundable = (reply: FastifyReply) => {
   );
 };
 
+const orderCancelled = (reply: FastifyReply) => {
+  return conflict(
+    reply,
+    "ORDER_CANCELLED",
+    "Refunds cannot be registered for cancelled orders",
+  );
+};
+
 export const createPaymentController = async (
   request: FastifyRequest<{ Params: OrderParams }>,
   reply: FastifyReply,
@@ -120,6 +128,10 @@ export const createRefundController = async (
 
     if (result.status === "order_not_found") {
       return orderNotFound(reply);
+    }
+
+    if (result.status === "order_cancelled") {
+      return orderCancelled(reply);
     }
 
     if (result.status === "amount_exceeds_refundable") {

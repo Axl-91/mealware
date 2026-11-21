@@ -149,7 +149,7 @@ export const createRefund = async ({
 
     const order = await trx
       .selectFrom("orders")
-      .select("id")
+      .select(["id", "status"])
       .where("id", "=", paymentReference.order_id)
       .where("restaurant_id", "=", restaurantId)
       .forUpdate()
@@ -157,6 +157,10 @@ export const createRefund = async ({
 
     if (!order) {
       return { status: "order_not_found" as const };
+    }
+
+    if (order.status === "CANCELLED") {
+      return { status: "order_cancelled" as const };
     }
 
     const payment = await trx
