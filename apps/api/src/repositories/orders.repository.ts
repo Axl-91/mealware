@@ -278,6 +278,30 @@ export const updateOrderStatus = async ({
       return { status: "not_found" as const };
     }
 
+    if (status === "CANCELLED") {
+      const { total: paymentsTotal } = await trx
+        .selectFrom("payments")
+        .select(sql<string>`COALESCE(SUM(amount), 0)::text`.as("total"))
+        .where("order_id", "=", orderId)
+        .where("restaurant_id", "=", restaurantId)
+        .executeTakeFirstOrThrow();
+
+      const { total: refundsTotal } = await trx
+        .selectFrom("refunds")
+        .innerJoin("payments", "payments.id", "refunds.payment_id")
+        .select(sql<string>`COALESCE(SUM(refunds.amount), 0)::text`.as("total"))
+        .where("payments.order_id", "=", orderId)
+        .where("payments.restaurant_id", "=", restaurantId)
+        .executeTakeFirstOrThrow();
+
+      const receivedCents = Math.round(Number(paymentsTotal) * 100);
+      const refundedCents = Math.round(Number(refundsTotal) * 100);
+
+      if (receivedCents > refundedCents) {
+        return { status: "payment_not_refunded" as const };
+      }
+    }
+
     if (!validateTransition(existingOrder.status)) {
       return { status: "invalid_transition" as const };
     }

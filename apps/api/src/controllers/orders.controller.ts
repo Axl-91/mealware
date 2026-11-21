@@ -28,6 +28,14 @@ const menuItemNotAvailable = (reply: FastifyReply) => {
   );
 };
 
+const orderPaymentNotRefunded = (reply: FastifyReply) => {
+  return conflict(
+    reply,
+    "ORDER_PAYMENT_NOT_REFUNDED",
+    "All payments must be fully refunded before cancelling the order",
+  );
+};
+
 const invalidStatusTransition = (reply: FastifyReply) => {
   return conflict(
     reply,
@@ -160,6 +168,10 @@ export const updateOrderStatusController = async (
 
     if (result.status === "not_found") {
       return orderNotFound(reply);
+    }
+
+    if (result.status === "payment_not_refunded") {
+      return orderPaymentNotRefunded(reply);
     }
 
     if (result.status === "invalid_transition") {

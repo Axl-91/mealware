@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ORDER_STATUSES, USER_ROLES } from "@mealware/shared";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
@@ -18,6 +18,7 @@ describe("PUT /api/v1/orders/:id/status", () => {
 
   let menuItemId: string;
   let otherRestaurantMenuItemId: string;
+  let menuItemPrice: number;
 
   const orderIds: string[] = [];
   const menuItemIds: string[] = [];
@@ -136,6 +137,51 @@ describe("PUT /api/v1/orders/:id/status", () => {
     expect(response.statusCode).toBe(200);
   };
 
+  const createReadyOrder = async (cookie = admin.cookie) => {
+    const order = await createPendingOrder(cookie);
+
+    await moveOrderToReady(order.id, cookie);
+
+    return order;
+  };
+
+  const createPayment = async (
+    orderId: string,
+    amount: number,
+    cookie = admin.cookie,
+  ) => {
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/v1/orders/${orderId}/payments`,
+      headers: { cookie },
+      payload: {
+        method: "CASH",
+        amount,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    return response.json().payment;
+  };
+
+  const createRefund = async (
+    paymentId: string,
+    amount: number,
+    cookie = admin.cookie,
+  ) => {
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/v1/payments/${paymentId}/refunds`,
+      headers: { cookie },
+      payload: { amount },
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    return response.json().refund;
+  };
+
   beforeAll(async () => {
     app = await appPromise;
 
@@ -162,6 +208,7 @@ describe("PUT /api/v1/orders/:id/status", () => {
       categoryId: category.id,
     });
     menuItemId = menuItem.id;
+    menuItemPrice = Number(menuItem.price);
 
     const otherRestaurantMenuItem = await createMenuItem({
       restaurantId: otherAdmin.user.restaurant_id,
@@ -304,6 +351,86 @@ describe("PUT /api/v1/orders/:id/status", () => {
 
     expect(await getOrderStatus(order.id, admin.cookie)).toBe(
       ORDER_STATUSES.CANCELLED,
+    );
+  });
+
+  it("should return 409 when cancelling an order with a non-refunded payment", async () => {
+    const order = await createReadyOrder();
+
+    await createPayment(order.id, menuItemPrice);
+
+    const response = await updateOrderStatus(
+      order.id,
+      ORDER_STATUSES.CANCELLED,
+      admin.cookie,
+    );
+
+    expect(response.statusCode).toBe(409);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ORDER_PAYMENT_NOT_REFUNDED",
+        message:
+          "All payments must be fully refunded before cancelling the order",
+      },
+    });
+
+    expect(await getOrderStatus(order.id, admin.cookie)).toBe(
+      ORDER_STATUSES.READY,
+    );
+  });
+
+  it("should return 409 when cancelling an order with a partially refunded payment", async () => {
+    const order = await createReadyOrder();
+
+    const payment = await createPayment(order.id, menuItemPrice);
+
+    const totalCents = Math.round(menuItemPrice * 100);
+    const partialRefundAmount = Math.floor(totalCents / 2) / 100;
+
+    await createRefund(payment.id, partialRefundAmount);
+
+    const response = await updateOrderStatus(
+      order.id,
+      ORDER_STATUSES.CANCELLED,
+      admin.cookie,
+    );
+
+    expect(response.statusCode).toBe(409);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ORDER_PAYMENT_NOT_REFUNDED",
+      },
+    });
+
+    expect(await getOrderStatus(order.id, admin.cookie)).toBe(
+      ORDER_STATUSES.READY,
+    );
+  });
+
+  it("should pass the payment validation when all payments are fully refunded", async () => {
+    const order = await createReadyOrder();
+
+    const payment = await createPayment(order.id, menuItemPrice);
+
+    await createRefund(payment.id, menuItemPrice);
+
+    const response = await updateOrderStatus(
+      order.id,
+      ORDER_STATUSES.CANCELLED,
+      admin.cookie,
+    );
+
+    // READY orders cannot be cancelled yet.
+    // This verifies that the payment validation passes and the transition
+    // validation is reached.
+    expect(response.statusCode).toBe(409);
+
+    expect(response.json().error.code).toBe("INVALID_ORDER_STATUS_TRANSITION");
+
+    expect(await getOrderStatus(order.id, admin.cookie)).toBe(
+      ORDER_STATUSES.READY,
     );
   });
 
