@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { USER_ROLES } from "@mealware/shared";
+import { ORDER_STATUSES, USER_ROLES } from "@mealware/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
@@ -107,9 +107,78 @@ const setOrderStatusAndUpdatedAt = async (
     .execute();
 };
 
+const updateOrderStatus = async (
+  orderId: string,
+  status: (typeof ORDER_STATUSES)[keyof typeof ORDER_STATUSES],
+) => {
+  return app.inject({
+    method: "PUT",
+    url: `/api/v1/orders/${orderId}/status`,
+    headers: { cookie: admin.cookie },
+    payload: { status },
+  });
+};
+
+const createReadyOrder = async (menuItemId: string) => {
+  const response = await createOrder(admin.cookie, menuItemId);
+
+  expect(response.statusCode).toBe(201);
+
+  const order = response.json().order;
+
+  const preparingResponse = await updateOrderStatus(
+    order.id,
+    ORDER_STATUSES.PREPARING,
+  );
+
+  expect(preparingResponse.statusCode).toBe(200);
+
+  const readyResponse = await updateOrderStatus(order.id, ORDER_STATUSES.READY);
+
+  expect(readyResponse.statusCode).toBe(200);
+
+  return order;
+};
+
+const createPayment = async (orderId: string, amount: number) => {
+  return app.inject({
+    method: "POST",
+    url: `/api/v1/orders/${orderId}/payments`,
+    headers: { cookie: employee.cookie },
+    payload: {
+      method: "CASH",
+      amount,
+    },
+  });
+};
+
+const createRefund = async (paymentId: string, amount: number) => {
+  return app.inject({
+    method: "POST",
+    url: `/api/v1/payments/${paymentId}/refunds`,
+    headers: { cookie: admin.cookie },
+    payload: { amount },
+  });
+};
+
+const getOrderFromList = async (orderId: string) => {
+  const response = await getOrders(admin.cookie);
+
+  expect(response.statusCode).toBe(200);
+
+  const order = response
+    .json()
+    .orders.find((item: { id: string }) => item.id === orderId);
+
+  expect(order).toBeDefined();
+
+  return order;
+};
+
 describe("GET /api/v1/orders", () => {
   let menuItemId: string;
   let otherRestaurantMenuItemId: string;
+  let menuItemPrice: number;
 
   beforeAll(async () => {
     app = await appPromise;
@@ -134,6 +203,7 @@ describe("GET /api/v1/orders", () => {
     });
 
     menuItemId = menuItem.id;
+    menuItemPrice = Number(menuItem.price);
 
     const otherRestaurantMenuItem = await createMenuItem({
       restaurantId: otherRestaurantAdmin.user.restaurant_id,
@@ -378,6 +448,151 @@ describe("GET /api/v1/orders", () => {
 
     expect(returnedOrderIds).not.toContain(orderId);
   });
+
+  it("should return UNPAID for a ready order without payments", async () => {
+    const order = await createReadyOrder(menuItemId);
+
+    const listedOrder = await getOrderFromList(order.id);
+
+    expect(listedOrder.payment_status).toBe("UNPAID");
+  });
+
+  it("should return PARTIALLY_PAID for a ready order with partial payments", async () => {
+    const order = await createReadyOrder(menuItemId);
+
+    const totalCents = Math.round(menuItemPrice * 100);
+    const partialAmount = Math.floor(totalCents / 2) / 100;
+
+    const paymentResponse = await createPayment(order.id, partialAmount);
+
+    expect(paymentResponse.statusCode).toBe(201);
+
+    const listedOrder = await getOrderFromList(order.id);
+
+    expect(listedOrder.payment_status).toBe("PARTIALLY_PAID");
+  });
+
+  it("should return PAID for a fully paid ready order", async () => {
+    const order = await createReadyOrder(menuItemId);
+
+    const paymentResponse = await createPayment(order.id, menuItemPrice);
+
+    expect(paymentResponse.statusCode).toBe(201);
+
+    const listedOrder = await getOrderFromList(order.id);
+
+    expect(listedOrder.payment_status).toBe("PAID");
+  });
+
+  it("should return UNPAID for a completed order without payments", async () => {
+    const order = await createReadyOrder(menuItemId);
+
+    const completeResponse = await updateOrderStatus(
+      order.id,
+      ORDER_STATUSES.COMPLETED,
+    );
+
+    expect(completeResponse.statusCode).toBe(200);
+
+    const listedOrder = await getOrderFromList(order.id);
+
+    expect(listedOrder.payment_status).toBe("UNPAID");
+  });
+
+  it("should return PAID for a fully paid completed order", async () => {
+    const order = await createReadyOrder(menuItemId);
+
+    const paymentResponse = await createPayment(order.id, menuItemPrice);
+
+    expect(paymentResponse.statusCode).toBe(201);
+
+    const completeResponse = await updateOrderStatus(
+      order.id,
+      ORDER_STATUSES.COMPLETED,
+    );
+
+    expect(completeResponse.statusCode).toBe(200);
+
+    const listedOrder = await getOrderFromList(order.id);
+
+    expect(listedOrder.payment_status).toBe("PAID");
+  });
+
+  it("should return PARTIALLY_PAID after a partial refund", async () => {
+    const order = await createReadyOrder(menuItemId);
+
+    const paymentResponse = await createPayment(order.id, menuItemPrice);
+
+    expect(paymentResponse.statusCode).toBe(201);
+
+    const { payment } = paymentResponse.json();
+
+    const totalCents = Math.round(menuItemPrice * 100);
+    const refundAmount = Math.floor(totalCents / 2) / 100;
+
+    const refundResponse = await createRefund(payment.id, refundAmount);
+
+    expect(refundResponse.statusCode).toBe(201);
+
+    const listedOrder = await getOrderFromList(order.id);
+
+    expect(listedOrder.payment_status).toBe("PARTIALLY_PAID");
+  });
+
+  it("should return UNPAID after a full refund", async () => {
+    const order = await createReadyOrder(menuItemId);
+
+    const paymentResponse = await createPayment(order.id, menuItemPrice);
+
+    expect(paymentResponse.statusCode).toBe(201);
+
+    const { payment } = paymentResponse.json();
+
+    const refundResponse = await createRefund(payment.id, menuItemPrice);
+
+    expect(refundResponse.statusCode).toBe(201);
+
+    const listedOrder = await getOrderFromList(order.id);
+
+    expect(listedOrder.payment_status).toBe("UNPAID");
+  });
+
+  it.each([
+    ORDER_STATUSES.PENDING,
+    ORDER_STATUSES.PREPARING,
+    ORDER_STATUSES.CANCELLED,
+  ] as const)(
+    "should return null payment_status for %s orders",
+    async (status) => {
+      const response = await createOrder(admin.cookie, menuItemId);
+
+      expect(response.statusCode).toBe(201);
+
+      const orderId = response.json().order.id;
+
+      if (status === ORDER_STATUSES.PREPARING) {
+        const preparingResponse = await updateOrderStatus(
+          orderId,
+          ORDER_STATUSES.PREPARING,
+        );
+
+        expect(preparingResponse.statusCode).toBe(200);
+      }
+
+      if (status === ORDER_STATUSES.CANCELLED) {
+        const cancelledResponse = await updateOrderStatus(
+          orderId,
+          ORDER_STATUSES.CANCELLED,
+        );
+
+        expect(cancelledResponse.statusCode).toBe(200);
+      }
+
+      const listedOrder = await getOrderFromList(orderId);
+
+      expect(listedOrder.payment_status).toBeNull();
+    },
+  );
 
   it("should return 401 when the request is unauthenticated", async () => {
     const response = await app.inject({

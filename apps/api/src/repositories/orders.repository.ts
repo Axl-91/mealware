@@ -16,6 +16,8 @@ interface GetOrdersInput {
   restaurantId: string;
 }
 
+type PaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID";
+
 interface GetOrderByIdInput {
   orderId: string;
   restaurantId: string;
@@ -134,17 +136,66 @@ export const createOrder = async ({
 
 export const getOrders = async ({ restaurantId }: GetOrdersInput) => {
   return db
+    .with("order_totals", (qb) =>
+      qb
+        .selectFrom("order_items")
+        .select("order_id")
+        .select(sql<string>`SUM(unit_price * quantity)`.as("total"))
+        .where("restaurant_id", "=", restaurantId)
+        .groupBy("order_id"),
+    )
+    .with("payment_totals", (qb) =>
+      qb
+        .selectFrom("payments")
+        .select("order_id")
+        .select(sql<string>`SUM(amount)`.as("total"))
+        .where("restaurant_id", "=", restaurantId)
+        .groupBy("order_id"),
+    )
+    .with("refund_totals", (qb) =>
+      qb
+        .selectFrom("refunds")
+        .innerJoin("payments", "payments.id", "refunds.payment_id")
+        .select("payments.order_id")
+        .select(sql<string>`SUM(refunds.amount)`.as("total"))
+        .where("refunds.restaurant_id", "=", restaurantId)
+        .where("payments.restaurant_id", "=", restaurantId)
+        .groupBy("payments.order_id"),
+    )
     .selectFrom("orders")
-    .selectAll()
-    .where("restaurant_id", "=", restaurantId)
+    .leftJoin("order_totals", "order_totals.order_id", "orders.id")
+    .leftJoin("payment_totals", "payment_totals.order_id", "orders.id")
+    .leftJoin("refund_totals", "refund_totals.order_id", "orders.id")
+    .selectAll("orders")
+    .select(
+      sql<PaymentStatus | null>`
+        CASE
+          WHEN orders.status NOT IN ('READY', 'COMPLETED') THEN NULL
+
+          WHEN (
+            COALESCE(payment_totals.total, 0) -
+            COALESCE(refund_totals.total, 0)
+          ) <= 0 THEN 'UNPAID'
+
+          WHEN (
+            COALESCE(payment_totals.total, 0) -
+            COALESCE(refund_totals.total, 0)
+          ) < COALESCE(order_totals.total, 0)
+            THEN 'PARTIALLY_PAID'
+
+          ELSE 'PAID'
+        END
+      `.as("payment_status"),
+    )
+    .where("orders.restaurant_id", "=", restaurantId)
     .where((eb) =>
       eb.or([
-        eb("status", "not in", ["COMPLETED", "CANCELLED"]),
-        eb("updated_at", ">=", sql<Date>`now() - interval '12 hours'`),
+        eb("orders.status", "not in", ["COMPLETED", "CANCELLED"]),
+        eb("orders.updated_at", ">=", sql<Date>`now() - interval '12 hours'`),
       ]),
     )
-    .orderBy("order_date", "desc")
-    .orderBy("order_number", "desc")
+    .orderBy("orders.order_date", "desc")
+    .orderBy("orders.order_number", "desc")
     .execute();
 };
 
