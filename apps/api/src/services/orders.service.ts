@@ -9,7 +9,7 @@ import * as ordersRepository from "../repositories/orders.repository.js";
 const allowedTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
   PENDING: ["PREPARING", "CANCELLED"],
   PREPARING: ["READY", "CANCELLED"],
-  READY: ["COMPLETED"],
+  READY: ["COMPLETED", "CANCELLED"],
   COMPLETED: [],
   CANCELLED: [],
 };

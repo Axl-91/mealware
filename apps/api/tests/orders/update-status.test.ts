@@ -409,7 +409,7 @@ describe("PUT /api/v1/orders/:id/status", () => {
     );
   });
 
-  it("should pass the payment validation when all payments are fully refunded", async () => {
+  it("should allow cancelling a ready order when all payments are fully refunded", async () => {
     const order = await createReadyOrder();
 
     const payment = await createPayment(order.id, menuItemPrice);
@@ -422,15 +422,15 @@ describe("PUT /api/v1/orders/:id/status", () => {
       admin.cookie,
     );
 
-    // READY orders cannot be cancelled yet.
-    // This verifies that the payment validation passes and the transition
-    // validation is reached.
-    expect(response.statusCode).toBe(409);
+    expect(response.statusCode).toBe(200);
 
-    expect(response.json().error.code).toBe("INVALID_ORDER_STATUS_TRANSITION");
+    expect(response.json().order).toMatchObject({
+      id: order.id,
+      status: ORDER_STATUSES.CANCELLED,
+    });
 
     expect(await getOrderStatus(order.id, admin.cookie)).toBe(
-      ORDER_STATUSES.READY,
+      ORDER_STATUSES.CANCELLED,
     );
   });
 
@@ -450,10 +450,8 @@ describe("PUT /api/v1/orders/:id/status", () => {
     );
   });
 
-  it("should return 409 when trying to cancel an order that is ready", async () => {
-    const order = await createPendingOrder();
-
-    await moveOrderToReady(order.id);
+  it("should allow cancelling a ready order without payments", async () => {
+    const order = await createReadyOrder();
 
     const response = await updateOrderStatus(
       order.id,
@@ -461,10 +459,10 @@ describe("PUT /api/v1/orders/:id/status", () => {
       admin.cookie,
     );
 
-    expect(response.statusCode).toBe(409);
+    expect(response.statusCode).toBe(200);
 
     expect(await getOrderStatus(order.id, admin.cookie)).toBe(
-      ORDER_STATUSES.READY,
+      ORDER_STATUSES.CANCELLED,
     );
   });
 
