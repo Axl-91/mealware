@@ -67,3 +67,9 @@ interface GetOrderByIdResponse {
 
 export const getOrderById = (id: string) =>
   apiRequest<GetOrderByIdResponse>(`/orders/${id}`);
+
+export const updateOrderStatus = (orderId: string, status: OrderStatus) =>
+  apiRequest<GetOrderByIdResponse>(`/orders/${orderId}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
