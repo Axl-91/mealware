@@ -188,6 +188,22 @@ export const getOrders = async ({ restaurantId }: GetOrdersInput) => {
         END
       `.as("payment_status"),
     )
+    .select(
+      sql<string | null>`
+        CASE
+          WHEN orders.status NOT IN ('READY', 'COMPLETED') THEN NULL
+
+          ELSE GREATEST(
+            COALESCE(order_totals.total, 0)::numeric -
+            (
+              COALESCE(payment_totals.total, 0)::numeric -
+              COALESCE(refund_totals.total, 0)::numeric
+            ),
+            0
+          )::text
+        END
+      `.as("outstanding_amount"),
+    )
     .where("orders.restaurant_id", "=", restaurantId)
     .where((eb) =>
       eb.or([
