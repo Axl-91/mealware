@@ -18,6 +18,9 @@ const orderIds: string[] = [];
 const menuItemIds: string[] = [];
 const categoryIds: string[] = [];
 
+const additionalUsers: Awaited<ReturnType<typeof createTestUserWithAuth>>[] =
+  [];
+
 const createCategory = async (name: string, cookie: string) => {
   const response = await app.inject({
     method: "POST",
@@ -114,6 +117,10 @@ describe("POST /api/v1/orders", () => {
       menuItemIds,
       categoryIds,
     });
+
+    for (const user of additionalUsers) {
+      await user.cleanup();
+    }
 
     await admin.cleanup();
     await employee.cleanup();
@@ -357,5 +364,88 @@ describe("POST /api/v1/orders", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("should return 404 when a menu item belongs to another restaurant", async () => {
+    const anotherAdmin = await createTestUserWithAuth(app, {
+      role: USER_ROLES.ADMIN,
+    });
+
+    additionalUsers.push(anotherAdmin);
+
+    const anotherCategory = await createCategory(
+      `Other restaurant ${randomUUID()}`,
+      anotherAdmin.cookie,
+    );
+
+    const anotherMenuItemResponse = await createMenuItem(anotherAdmin.cookie, {
+      categoryId: anotherCategory.id,
+      name: `Other Burger ${randomUUID()}`,
+      price: randomPrice(),
+    });
+
+    expect(anotherMenuItemResponse.statusCode).toBe(201);
+
+    const anotherMenuItemId = anotherMenuItemResponse.json().menuItem.id;
+
+    const response = await createOrder(employee.cookie, {
+      type: "DINE_IN",
+      items: [{ menuItemId: anotherMenuItemId, quantity: 1 }],
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe("MENU_ITEM_NOT_FOUND");
+  });
+
+  it("should use the menu item price from the database", async () => {
+    const response = await createOrder(employee.cookie, {
+      type: "DINE_IN",
+      items: [
+        {
+          menuItemId,
+          quantity: 2,
+          price: 0.01,
+        },
+      ],
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const { order } = response.json();
+
+    const orderItem = await db
+      .selectFrom("order_items")
+      .select("unit_price")
+      .where("order_id", "=", order.id)
+      .executeTakeFirstOrThrow();
+
+    expect(orderItem.unit_price).toBe(menuItemPrice.toFixed(2));
+  });
+
+  it("should not consume an order number when creation fails", async () => {
+    const invalidResponse = await createOrder(employee.cookie, {
+      type: "DINE_IN",
+      items: [{ menuItemId: randomUUID(), quantity: 1 }],
+    });
+
+    expect(invalidResponse.statusCode).toBe(404);
+
+    const response = await createOrder(employee.cookie, {
+      type: "DINE_IN",
+      items: [{ menuItemId, quantity: 1 }],
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const { order } = response.json();
+
+    const sequence = await db
+      .selectFrom("order_sequences")
+      .select("last_number")
+      .where("restaurant_id", "=", employee.user.restaurant_id)
+      .where("date", "=", order.order_date)
+      .executeTakeFirstOrThrow();
+
+    expect(order.order_number).toBe(sequence.last_number);
   });
 });

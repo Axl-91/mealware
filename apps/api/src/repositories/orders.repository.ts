@@ -63,6 +63,7 @@ export const createOrder = async ({
       .where("id", "in", menuItemIds)
       .where("restaurant_id", "=", restaurantId)
       .where("is_active", "=", true)
+      .forUpdate()
       .execute();
 
     if (menuItems.length !== menuItemIds.length) {
@@ -348,6 +349,7 @@ export const updateOrder = async ({
       .where("id", "in", menuItemIds)
       .where("restaurant_id", "=", restaurantId)
       .where("is_active", "=", true)
+      .forUpdate()
       .execute();
 
     if (menuItems.length !== menuItemIds.length) {
