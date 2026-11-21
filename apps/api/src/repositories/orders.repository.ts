@@ -176,15 +176,18 @@ export const updateOrder = async ({
   return db.transaction().execute(async (trx) => {
     const existingOrder = await trx
       .selectFrom("orders")
-      .select("id")
+      .select(["id", "status"])
       .where("id", "=", orderId)
       .where("restaurant_id", "=", restaurantId)
-      .where("status", "=", "PENDING")
       .forUpdate()
       .executeTakeFirst();
 
     if (!existingOrder) {
       return { status: "not_found" as const };
+    }
+
+    if (existingOrder.status !== "PENDING") {
+      return { status: "not_editable" as const };
     }
 
     const menuItemIds = [...new Set(items.map((item) => item.menuItemId))];

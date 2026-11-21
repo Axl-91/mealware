@@ -36,6 +36,14 @@ const invalidStatusTransition = (reply: FastifyReply) => {
   );
 };
 
+const orderNotEditable = (reply: FastifyReply) => {
+  return conflict(
+    reply,
+    "ORDER_NOT_EDITABLE",
+    "Only pending orders can be edited",
+  );
+};
+
 export const createOrderController = async (
   request: FastifyRequest,
   reply: FastifyReply,
@@ -111,6 +119,10 @@ export const updateOrderController = async (
 
     if (result.status === "not_found") {
       return orderNotFound(reply);
+    }
+
+    if (result.status === "not_editable") {
+      return orderNotEditable(reply);
     }
 
     if (result.status === "menu_item_not_found") {

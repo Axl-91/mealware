@@ -16,7 +16,7 @@ describe("PUT /api/v1/orders/:id", () => {
   let employee: Awaited<ReturnType<typeof createTestUserWithAuth>>;
   let otherAdmin: Awaited<ReturnType<typeof createTestUserWithAuth>>;
 
-  let menuItemId: string;
+  let menuItemId: string = "";
   let anotherMenuItemId: string;
   let unavailableMenuItemId: string;
   let inactiveMenuItemId: string;
@@ -280,6 +280,41 @@ describe("PUT /api/v1/orders/:id", () => {
           quantity: 2,
         },
       ],
+    });
+  });
+
+  it("should return 409 when trying to update an order that is not pending", async () => {
+    const order = await createPendingOrder();
+
+    const statusResponse = await app.inject({
+      method: "PUT",
+      url: `/api/v1/orders/${order.id}/status`,
+      headers: { cookie: admin.cookie },
+      payload: {
+        status: "PREPARING",
+      },
+    });
+
+    expect(statusResponse.statusCode).toBe(200);
+
+    const response = await updateOrder(
+      order.id,
+      {
+        type: "TAKEAWAY",
+        customerName: null,
+        notes: null,
+        items: [{ menuItemId, quantity: 1 }],
+      },
+      admin.cookie,
+    );
+
+    expect(response.statusCode).toBe(409);
+
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "ORDER_NOT_EDITABLE",
+        message: "Only pending orders can be edited",
+      },
     });
   });
 
