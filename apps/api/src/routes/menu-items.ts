@@ -1,5 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
-import { USER_ROLES } from "@mealware/shared";
+import {
+  MENU_ITEMS_CREATE_ROLES,
+  MENU_ITEMS_READ_ROLES,
+  MENU_ITEMS_UPDATE_ROLES,
+  MENU_ITEMS_DEACTIVATE_ROLES,
+  MENU_ITEMS_REACTIVATE_ROLES,
+} from "@mealware/shared";
 import { authenticate } from "../auth/authenticate.js";
 import { authorize } from "../auth/authorize.js";
 import {
@@ -12,43 +18,57 @@ import {
 } from "../controllers/menu-items.controller.js";
 
 export const menuItemsRoutes: FastifyPluginAsync = async (app) => {
-  const authenticated = { preHandler: [authenticate] };
-
-  const adminOnly = {
-    preHandler: [authenticate, authorize(USER_ROLES.ADMIN)],
+  const createAccess = {
+    preHandler: [authenticate, authorize(...MENU_ITEMS_CREATE_ROLES)],
   };
 
-  // POST /menu-items - Create menu item (ADMIN only)
-  app.post("/", adminOnly, createMenuItemController);
+  const readAccess = {
+    preHandler: [authenticate, authorize(...MENU_ITEMS_READ_ROLES)],
+  };
 
-  // GET /menu-items - List menu items (ADMIN and EMPLOYEE)
-  app.get("/", authenticated, getMenuItemsController);
+  const updateAccess = {
+    preHandler: [authenticate, authorize(...MENU_ITEMS_UPDATE_ROLES)],
+  };
 
-  // GET /menu-items/:id - Get menu item by ID (ADMIN and EMPLOYEE)
+  const deactivateAccess = {
+    preHandler: [authenticate, authorize(...MENU_ITEMS_DEACTIVATE_ROLES)],
+  };
+
+  const reactivateAccess = {
+    preHandler: [authenticate, authorize(...MENU_ITEMS_REACTIVATE_ROLES)],
+  };
+
+  // POST /menu-items - Create menu item
+  app.post("/", createAccess, createMenuItemController);
+
+  // GET /menu-items - List menu items
+  app.get("/", readAccess, getMenuItemsController);
+
+  // GET /menu-items/:id - Get menu item by ID
   app.get<{ Params: { id: string } }>(
     "/:id",
-    authenticated,
+    readAccess,
     getMenuItemByIdController,
   );
 
-  // PUT /menu-items/:id - Update menu item (ADMIN only)
+  // PUT /menu-items/:id - Update menu item
   app.put<{ Params: { id: string } }>(
     "/:id",
-    adminOnly,
+    updateAccess,
     updateMenuItemController,
   );
 
-  // DELETE /menu-items/:id - Deactivate menu item (ADMIN only)
+  // DELETE /menu-items/:id - Deactivate menu item
   app.delete<{ Params: { id: string } }>(
     "/:id",
-    adminOnly,
+    deactivateAccess,
     deactivateMenuItemController,
   );
 
-  // PUT /menu-items/:id/reactivate - Reactivate menu item (ADMIN only)
+  // PUT /menu-items/:id/reactivate - Reactivate menu item
   app.put<{ Params: { id: string } }>(
     "/:id/reactivate",
-    adminOnly,
+    reactivateAccess,
     reactivateMenuItemController,
   );
 };

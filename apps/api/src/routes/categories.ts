@@ -1,5 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
+import {
+  CATEGORIES_CREATE_ROLES,
+  CATEGORIES_READ_ROLES,
+  CATEGORIES_UPDATE_ROLES,
+  CATEGORIES_DEACTIVATE_ROLES,
+  CATEGORIES_REACTIVATE_ROLES,
+} from "@mealware/shared";
 import { authenticate } from "../auth/authenticate.js";
+import { authorize } from "../auth/authorize.js";
 import {
   createCategoryController,
   getCategoriesController,
@@ -10,12 +18,28 @@ import {
 } from "../controllers/categories.controller.js";
 
 export const categoriesRoutes: FastifyPluginAsync = async (app) => {
-  const authenticated = {
-    preHandler: [authenticate],
+  const createAccess = {
+    preHandler: [authenticate, authorize(...CATEGORIES_CREATE_ROLES)],
+  };
+
+  const readAccess = {
+    preHandler: [authenticate, authorize(...CATEGORIES_READ_ROLES)],
+  };
+
+  const updateAccess = {
+    preHandler: [authenticate, authorize(...CATEGORIES_UPDATE_ROLES)],
+  };
+
+  const deactivateAccess = {
+    preHandler: [authenticate, authorize(...CATEGORIES_DEACTIVATE_ROLES)],
+  };
+
+  const reactivateAccess = {
+    preHandler: [authenticate, authorize(...CATEGORIES_REACTIVATE_ROLES)],
   };
 
   // POST /categories - Create category
-  app.post("/", authenticated, createCategoryController);
+  app.post("/", createAccess, createCategoryController);
 
   // GET /categories - List categories with pagination and filters
   app.get<{
@@ -25,33 +49,33 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
       search?: string;
       status?: string;
     };
-  }>("/", authenticated, getCategoriesController);
+  }>("/", readAccess, getCategoriesController);
 
   // GET /categories/:id - Get category by ID
   app.get<{ Params: { id: string } }>(
     "/:id",
-    authenticated,
+    readAccess,
     getCategoryByIdController,
   );
 
   // PUT /categories/:id - Update category
   app.put<{ Params: { id: string } }>(
     "/:id",
-    authenticated,
+    updateAccess,
     updateCategoryController,
   );
 
   // DELETE /categories/:id - Deactivate category
   app.delete<{ Params: { id: string } }>(
     "/:id",
-    authenticated,
+    deactivateAccess,
     deactivateCategoryController,
   );
 
   // PUT /categories/:id/reactivate - Reactivate category
   app.put<{ Params: { id: string } }>(
     "/:id/reactivate",
-    authenticated,
+    reactivateAccess,
     reactivateCategoryController,
   );
 };
