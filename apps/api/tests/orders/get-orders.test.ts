@@ -19,6 +19,8 @@ const orderIds: string[] = [];
 const menuItemIds: string[] = [];
 const categoryIds: string[] = [];
 
+const THIRTEEN_HOURS_IN_MS = 13 * 60 * 60 * 1000;
+
 const createCategory = async (createdBy: string) => {
   const category = await db
     .insertInto("categories")
@@ -83,6 +85,26 @@ const getOrders = async (cookie: string) => {
     url: "/api/v1/orders",
     headers: { cookie },
   });
+};
+
+const setOrderUpdatedAt = async (orderId: string, updatedAt: Date) => {
+  await db
+    .updateTable("orders")
+    .set({ updated_at: updatedAt })
+    .where("id", "=", orderId)
+    .execute();
+};
+
+const setOrderStatusAndUpdatedAt = async (
+  orderId: string,
+  status: "COMPLETED" | "CANCELLED",
+  updatedAt: Date,
+) => {
+  await db
+    .updateTable("orders")
+    .set({ status, updated_at: updatedAt })
+    .where("id", "=", orderId)
+    .execute();
 };
 
 describe("GET /api/v1/orders", () => {
@@ -252,6 +274,109 @@ describe("GET /api/v1/orders", () => {
       secondOrder.id,
       firstOrder.id,
     ]);
+  });
+
+  it("should include old orders that are not completed or cancelled", async () => {
+    const createResponse = await createOrder(employee.cookie, menuItemId);
+
+    expect(createResponse.statusCode).toBe(201);
+
+    const orderId = createResponse.json().order.id;
+    const updatedAt = new Date(Date.now() - THIRTEEN_HOURS_IN_MS);
+
+    await setOrderUpdatedAt(orderId, updatedAt);
+
+    const response = await getOrders(employee.cookie);
+
+    expect(response.statusCode).toBe(200);
+
+    const returnedOrderIds = response
+      .json()
+      .orders.map((order: { id: string }) => order.id);
+
+    expect(returnedOrderIds).toContain(orderId);
+  });
+
+  it("should include recently completed orders", async () => {
+    const createResponse = await createOrder(employee.cookie, menuItemId);
+
+    expect(createResponse.statusCode).toBe(201);
+
+    const orderId = createResponse.json().order.id;
+
+    await setOrderStatusAndUpdatedAt(orderId, "COMPLETED", new Date());
+
+    const response = await getOrders(employee.cookie);
+
+    expect(response.statusCode).toBe(200);
+
+    const returnedOrderIds = response
+      .json()
+      .orders.map((order: { id: string }) => order.id);
+
+    expect(returnedOrderIds).toContain(orderId);
+  });
+
+  it("should exclude completed orders older than 12 hours", async () => {
+    const createResponse = await createOrder(employee.cookie, menuItemId);
+
+    expect(createResponse.statusCode).toBe(201);
+
+    const orderId = createResponse.json().order.id;
+    const updatedAt = new Date(Date.now() - THIRTEEN_HOURS_IN_MS);
+
+    await setOrderStatusAndUpdatedAt(orderId, "COMPLETED", updatedAt);
+
+    const response = await getOrders(employee.cookie);
+
+    expect(response.statusCode).toBe(200);
+
+    const returnedOrderIds = response
+      .json()
+      .orders.map((order: { id: string }) => order.id);
+
+    expect(returnedOrderIds).not.toContain(orderId);
+  });
+
+  it("should include recently cancelled orders", async () => {
+    const createResponse = await createOrder(employee.cookie, menuItemId);
+
+    expect(createResponse.statusCode).toBe(201);
+
+    const orderId = createResponse.json().order.id;
+
+    await setOrderStatusAndUpdatedAt(orderId, "CANCELLED", new Date());
+
+    const response = await getOrders(employee.cookie);
+
+    expect(response.statusCode).toBe(200);
+
+    const returnedOrderIds = response
+      .json()
+      .orders.map((order: { id: string }) => order.id);
+
+    expect(returnedOrderIds).toContain(orderId);
+  });
+
+  it("should exclude cancelled orders older than 12 hours", async () => {
+    const createResponse = await createOrder(employee.cookie, menuItemId);
+
+    expect(createResponse.statusCode).toBe(201);
+
+    const orderId = createResponse.json().order.id;
+    const updatedAt = new Date(Date.now() - THIRTEEN_HOURS_IN_MS);
+
+    await setOrderStatusAndUpdatedAt(orderId, "CANCELLED", updatedAt);
+
+    const response = await getOrders(employee.cookie);
+
+    expect(response.statusCode).toBe(200);
+
+    const returnedOrderIds = response
+      .json()
+      .orders.map((order: { id: string }) => order.id);
+
+    expect(returnedOrderIds).not.toContain(orderId);
   });
 
   it("should return 401 when the request is unauthenticated", async () => {

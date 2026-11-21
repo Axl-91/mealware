@@ -1,15 +1,35 @@
 import type {
   CreateOrderInput,
+  UpdateOrderInput,
   UpdateOrderStatusInput,
 } from "@mealware/shared";
 import { sql } from "kysely";
 import { db } from "../database/database.js";
-import type { UpdateOrderInput } from "@mealware/shared";
-import { OrderStatus } from "../database/types/orders.js";
+import type { OrderStatus } from "../database/types/orders.js";
 
 interface CreateOrderRepositoryInput extends CreateOrderInput {
   restaurantId: string;
   createdBy: string;
+}
+
+interface GetOrdersInput {
+  restaurantId: string;
+}
+
+interface GetOrderByIdInput {
+  orderId: string;
+  restaurantId: string;
+}
+
+interface UpdateOrderRepositoryInput extends UpdateOrderInput {
+  orderId: string;
+  restaurantId: string;
+}
+
+interface UpdateOrderStatusRepositoryInput extends UpdateOrderStatusInput {
+  orderId: string;
+  restaurantId: string;
+  validateTransition: (currentStatus: OrderStatus) => boolean;
 }
 
 export const createOrder = async ({
@@ -112,24 +132,21 @@ export const createOrder = async ({
   });
 };
 
-interface GetOrdersInput {
-  restaurantId: string;
-}
-
 export const getOrders = async ({ restaurantId }: GetOrdersInput) => {
   return db
     .selectFrom("orders")
     .selectAll()
     .where("restaurant_id", "=", restaurantId)
+    .where((eb) =>
+      eb.or([
+        eb("status", "not in", ["COMPLETED", "CANCELLED"]),
+        eb("updated_at", ">=", sql<Date>`now() - interval '12 hours'`),
+      ]),
+    )
     .orderBy("order_date", "desc")
     .orderBy("order_number", "desc")
     .execute();
 };
-
-interface GetOrderByIdInput {
-  orderId: string;
-  restaurantId: string;
-}
 
 export const getOrderById = async ({
   orderId,
@@ -159,11 +176,6 @@ export const getOrderById = async ({
     items,
   };
 };
-
-interface UpdateOrderRepositoryInput extends UpdateOrderInput {
-  orderId: string;
-  restaurantId: string;
-}
 
 export const updateOrder = async ({
   orderId,
@@ -252,12 +264,6 @@ export const updateOrder = async ({
     return { status: "updated" as const };
   });
 };
-
-interface UpdateOrderStatusRepositoryInput extends UpdateOrderStatusInput {
-  orderId: string;
-  restaurantId: string;
-  validateTransition: (currentStatus: OrderStatus) => boolean;
-}
 
 export const updateOrderStatus = async ({
   orderId,
