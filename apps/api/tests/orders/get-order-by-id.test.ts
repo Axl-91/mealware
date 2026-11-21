@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USER_ROLES } from "@mealware/shared";
+import { sql } from "kysely";
 import { buildApp } from "../../src/app.js";
 import { db } from "../../src/database/database.js";
 import { cleanupTestData } from "../helpers/cleanup.js";
@@ -197,6 +198,128 @@ describe("GET /api/v1/orders/:id", () => {
       quantity: 2,
       notes: null,
     });
+  });
+
+  it("should return the order total and an empty payment list for a pending order", async () => {
+    const response = await getOrderById(orderId, employee.cookie);
+
+    expect(response.statusCode).toBe(200);
+
+    const { order } = response.json();
+
+    const expectedTotal = await db
+      .selectFrom("order_items")
+      .select(sql<string>`COALESCE(SUM(unit_price * quantity), 0)`.as("total"))
+      .where("order_id", "=", orderId)
+      .where("restaurant_id", "=", employee.user.restaurant_id)
+      .executeTakeFirstOrThrow();
+
+    expect(order.total).toBe(expectedTotal.total);
+    expect(order.payment_status).toBeNull();
+    expect(order.payments).toEqual([]);
+  });
+
+  it("should return payments with their refunds and calculate the payment status", async () => {
+    const restaurantId = admin.user.restaurant_id;
+
+    const total = await db
+      .selectFrom("order_items")
+      .select(sql<string>`SUM(unit_price * quantity)`.as("total"))
+      .where("order_id", "=", orderId)
+      .where("restaurant_id", "=", restaurantId)
+      .executeTakeFirstOrThrow();
+
+    await db
+      .updateTable("orders")
+      .set({ status: "READY" })
+      .where("id", "=", orderId)
+      .where("restaurant_id", "=", restaurantId)
+      .execute();
+
+    const firstPayment = await db
+      .insertInto("payments")
+      .values({
+        restaurant_id: restaurantId,
+        order_id: orderId,
+        method: "CASH",
+        amount: total.total,
+        created_by: admin.user.id,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    const secondPayment = await db
+      .insertInto("payments")
+      .values({
+        restaurant_id: restaurantId,
+        order_id: orderId,
+        method: "CASH",
+        amount: total.total,
+        created_by: admin.user.id,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    const refund = await db
+      .insertInto("refunds")
+      .values({
+        restaurant_id: restaurantId,
+        payment_id: firstPayment.id,
+        amount: total.total,
+        created_by: admin.user.id,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    try {
+      const response = await getOrderById(orderId, employee.cookie);
+
+      expect(response.statusCode).toBe(200);
+
+      const { order } = response.json();
+
+      expect(order.total).toBe(total.total);
+      expect(order.payment_status).toBe("PAID");
+
+      expect(order.payments).toHaveLength(2);
+
+      expect(order.payments).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: firstPayment.id,
+            amount: total.total,
+            refunds: [
+              expect.objectContaining({
+                id: refund.id,
+                amount: total.total,
+              }),
+            ],
+          }),
+          expect.objectContaining({
+            id: secondPayment.id,
+            amount: total.total,
+            refunds: [],
+          }),
+        ]),
+      );
+    } finally {
+      await db
+        .deleteFrom("refunds")
+        .where("payment_id", "in", [firstPayment.id, secondPayment.id])
+        .execute();
+
+      await db
+        .deleteFrom("payments")
+        .where("id", "in", [firstPayment.id, secondPayment.id])
+        .execute();
+
+      await db
+        .updateTable("orders")
+        .set({ status: "PENDING" })
+        .where("id", "=", orderId)
+        .where("restaurant_id", "=", restaurantId)
+        .execute();
+    }
   });
 
   it("should return 404 when the order belongs to another restaurant", async () => {

@@ -222,9 +222,96 @@ export const getOrderById = async ({
     .orderBy("created_at", "asc")
     .execute();
 
+  const payments = await db
+    .selectFrom("payments")
+    .selectAll()
+    .where("order_id", "=", orderId)
+    .where("restaurant_id", "=", restaurantId)
+    .orderBy("created_at", "asc")
+    .execute();
+
+  const paymentIds = payments.map((payment) => payment.id);
+
+  const refunds =
+    paymentIds.length > 0
+      ? await db
+          .selectFrom("refunds")
+          .selectAll()
+          .where("payment_id", "in", paymentIds)
+          .where("restaurant_id", "=", restaurantId)
+          .orderBy("created_at", "asc")
+          .execute()
+      : [];
+
+  const totals = await db
+    .selectFrom("order_items")
+    .select(sql<string>`COALESCE(SUM(unit_price * quantity), 0)`.as("total"))
+    .where("order_id", "=", orderId)
+    .where("restaurant_id", "=", restaurantId)
+    .executeTakeFirstOrThrow();
+
+  const paymentStatus = await db
+    .selectNoFrom((eb) => [
+      sql<PaymentStatus | null>`
+        CASE
+          WHEN ${eb.val(order.status)} NOT IN ('READY', 'COMPLETED')
+            THEN NULL
+
+          WHEN (
+            COALESCE((
+              SELECT SUM(payments.amount)
+              FROM payments
+              WHERE payments.order_id = ${eb.val(orderId)}
+                AND payments.restaurant_id = ${eb.val(restaurantId)}
+            ), 0)
+            -
+            COALESCE((
+              SELECT SUM(refunds.amount)
+              FROM refunds
+              INNER JOIN payments
+                ON payments.id = refunds.payment_id
+              WHERE payments.order_id = ${eb.val(orderId)}
+                AND payments.restaurant_id = ${eb.val(restaurantId)}
+                AND refunds.restaurant_id = ${eb.val(restaurantId)}
+            ), 0)
+          ) <= 0
+            THEN 'UNPAID'
+
+          WHEN (
+            COALESCE((
+              SELECT SUM(payments.amount)
+              FROM payments
+              WHERE payments.order_id = ${eb.val(orderId)}
+                AND payments.restaurant_id = ${eb.val(restaurantId)}
+            ), 0)
+            -
+            COALESCE((
+              SELECT SUM(refunds.amount)
+              FROM refunds
+              INNER JOIN payments
+                ON payments.id = refunds.payment_id
+              WHERE payments.order_id = ${eb.val(orderId)}
+                AND payments.restaurant_id = ${eb.val(restaurantId)}
+                AND refunds.restaurant_id = ${eb.val(restaurantId)}
+            ), 0)
+          ) < ${eb.val(totals.total)}::numeric
+            THEN 'PARTIALLY_PAID'
+
+          ELSE 'PAID'
+        END
+      `.as("status"),
+    ])
+    .executeTakeFirstOrThrow();
+
   return {
     ...order,
     items,
+    total: totals.total,
+    payment_status: paymentStatus.status,
+    payments: payments.map((payment) => ({
+      ...payment,
+      refunds: refunds.filter((refund) => refund.payment_id === payment.id),
+    })),
   };
 };
 
