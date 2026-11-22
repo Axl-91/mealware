@@ -2,6 +2,7 @@ import {
   ORDER_STATUSES,
   ORDER_TYPES,
   type CreatePaymentInput,
+  type CreateRefundInput,
 } from "@mealware/shared";
 import { apiRequest } from "@/lib/api";
 
@@ -30,8 +31,6 @@ export interface Order {
 export interface GetOrdersResponse {
   orders: Order[];
 }
-
-export const getOrders = () => apiRequest<GetOrdersResponse>("/orders");
 
 export interface OrderItem {
   id: string;
@@ -65,9 +64,19 @@ export interface OrderDetail extends Omit<Order, "outstanding_amount"> {
   payments: OrderPayment[];
 }
 
-interface GetOrderByIdResponse {
+export interface GetOrderByIdResponse {
   order: OrderDetail;
 }
+
+export interface CreatePaymentResponse {
+  payment: OrderPayment;
+}
+
+export interface CreateRefundResponse {
+  refund: OrderRefund;
+}
+
+export const getOrders = () => apiRequest<GetOrdersResponse>("/orders");
 
 export const getOrderById = (id: string) =>
   apiRequest<GetOrderByIdResponse>(`/orders/${id}`);
@@ -78,12 +87,14 @@ export const updateOrderStatus = (orderId: string, status: OrderStatus) =>
     body: JSON.stringify({ status }),
   });
 
-interface CreatePaymentResponse {
-  payment: OrderPayment;
-}
-
 export const createPayment = (orderId: string, data: CreatePaymentInput) =>
   apiRequest<CreatePaymentResponse>(`/orders/${orderId}/payments`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const createRefund = (paymentId: string, data: CreateRefundInput) =>
+  apiRequest<CreateRefundResponse>(`/payments/${paymentId}/refunds`, {
     method: "POST",
     body: JSON.stringify(data),
   });
