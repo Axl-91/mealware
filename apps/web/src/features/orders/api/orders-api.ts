@@ -1,4 +1,8 @@
-import { ORDER_STATUSES, ORDER_TYPES } from "@mealware/shared";
+import {
+  ORDER_STATUSES,
+  ORDER_TYPES,
+  type CreatePaymentInput,
+} from "@mealware/shared";
 import { apiRequest } from "@/lib/api";
 
 export type OrderType = (typeof ORDER_TYPES)[keyof typeof ORDER_TYPES];
@@ -72,4 +76,14 @@ export const updateOrderStatus = (orderId: string, status: OrderStatus) =>
   apiRequest<GetOrderByIdResponse>(`/orders/${orderId}/status`, {
     method: "PUT",
     body: JSON.stringify({ status }),
+  });
+
+interface CreatePaymentResponse {
+  payment: OrderPayment;
+}
+
+export const createPayment = (orderId: string, data: CreatePaymentInput) =>
+  apiRequest<CreatePaymentResponse>(`/orders/${orderId}/payments`, {
+    method: "POST",
+    body: JSON.stringify(data),
   });

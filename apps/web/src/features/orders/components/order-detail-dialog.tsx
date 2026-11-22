@@ -19,6 +19,7 @@ import {
 import type { OrderStatus } from "../api/orders-api";
 import { useOrder } from "../hooks/use-order";
 import { useUpdateOrderStatus } from "../hooks/use-orders";
+import RegisterPaymentDialog from "./register-payment-dialog";
 
 interface OrderDetailDialogProps {
   orderId: string | null;
@@ -127,11 +128,15 @@ export default function OrderDetailDialog({
   open,
   onOpenChange,
 }: OrderDetailDialogProps) {
-  const { data: order, isPending, isError, refetch } = useOrder(
-    open ? orderId : null,
-  );
+  const {
+    data: order,
+    isPending,
+    isError,
+    refetch,
+  } = useOrder(open ? orderId : null);
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   const updateStatus = useUpdateOrderStatus();
 
@@ -201,6 +206,11 @@ export default function OrderDetailDialog({
   const canCancel = order
     ? cancellableStatuses.includes(order.status)
     : false;
+
+  const canRegisterPayment =
+    order !== undefined &&
+    (order.status === "READY" || order.status === "COMPLETED") &&
+    totals.outstanding > 0;
 
   return (
     <>
@@ -431,8 +441,18 @@ export default function OrderDetailDialog({
               </section>
 
               {/* Acciones */}
-              {(nextStatus || canCancel) && (
+              {(nextStatus || canCancel || canRegisterPayment) && (
                 <section className="flex flex-wrap justify-end gap-2 border-t pt-4">
+                  {canRegisterPayment && (
+                    <Button
+                      type="button"
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() => setPaymentDialogOpen(true)}
+                    >
+                      Registrar pago
+                    </Button>
+                  )}
+
                   {canCancel && (
                     <Button
                       type="button"
@@ -462,7 +482,6 @@ export default function OrderDetailDialog({
                   )}
                 </section>
               )}
-
             </div>
           )}
         </DialogContent>
@@ -509,6 +528,17 @@ export default function OrderDetailDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {order && (
+        <RegisterPaymentDialog
+          orderId={order.id}
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          total={Number(order.total)}
+          paid={Math.max(totals.paid - totals.refunded, 0)}
+          outstanding={totals.outstanding}
+        />
+      )}
     </>
   );
 }
