@@ -47,7 +47,7 @@ const dateFormatter = new Intl.DateTimeFormat("es-AR", {
 const chartConfig = {
   total: {
     label: "Ventas",
-    color: "var(--chart-1)",
+    color: "#2563eb",
   },
 } satisfies ChartConfig;
 

@@ -52,7 +52,7 @@ const compactCurrencyFormatter = new Intl.NumberFormat("es-AR", {
 const chartConfig = {
   total: {
     label: "Ventas",
-    color: "var(--chart-3)",
+    color: "#059669",
   },
 } satisfies ChartConfig;
 

@@ -25,11 +25,11 @@ interface OrdersByTypeChartProps {
 const chartConfig = {
   dineIn: {
     label: "En el local",
-    color: "var(--chart-4)",
+    color: "#2563eb",
   },
   takeaway: {
     label: "Para llevar",
-    color: "var(--chart-5)",
+    color: "#8b5cf6",
   },
 } satisfies ChartConfig;
 

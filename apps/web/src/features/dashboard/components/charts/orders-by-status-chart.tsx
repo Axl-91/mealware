@@ -37,7 +37,7 @@ const STATUS_LABELS: Record<DashboardOrdersByStatus["status"], string> = {
 const chartConfig = {
   total: {
     label: "Pedidos",
-    color: "var(--chart-2)",
+    color: "#7c3aed",
   },
 } satisfies ChartConfig;
 
