@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ORDER_STATUSES } from "@mealware/shared";
 import type { Order } from "../api/orders-api";
 import OrdersColumn from "./orders-column";
@@ -11,20 +12,24 @@ export default function OrdersBoard({
   orders,
   onOrderClick,
 }: OrdersBoardProps) {
-  const pendingOrders = orders.filter(
-    (order) => order.status === ORDER_STATUSES.PENDING,
+  const pendingOrders = useMemo(
+    () => orders.filter((order) => order.status === ORDER_STATUSES.PENDING),
+    [orders],
   );
 
-  const preparingOrders = orders.filter(
-    (order) => order.status === ORDER_STATUSES.PREPARING,
+  const preparingOrders = useMemo(
+    () => orders.filter((order) => order.status === ORDER_STATUSES.PREPARING),
+    [orders],
   );
 
-  const readyOrders = orders.filter(
-    (order) => order.status === ORDER_STATUSES.READY,
+  const readyOrders = useMemo(
+    () => orders.filter((order) => order.status === ORDER_STATUSES.READY),
+    [orders],
   );
 
-  const completedOrders = orders.filter(
-    (order) => order.status === ORDER_STATUSES.COMPLETED,
+  const completedOrders = useMemo(
+    () => orders.filter((order) => order.status === ORDER_STATUSES.COMPLETED),
+    [orders],
   );
 
   return (

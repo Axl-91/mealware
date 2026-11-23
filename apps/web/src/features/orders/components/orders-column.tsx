@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Order } from "../api/orders-api";
 import OrderCard from "./order-card";
 
@@ -7,7 +8,7 @@ interface OrdersColumnProps {
   onOrderClick: (orderId: string) => void;
 }
 
-export default function OrdersColumn({
+function OrdersColumn({
   title,
   orders,
   onOrderClick,
@@ -40,3 +41,5 @@ export default function OrdersColumn({
     </section>
   );
 }
+
+export default memo(OrdersColumn);

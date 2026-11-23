@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router";
 
 export default function OrdersPage() {
-  const { data, isPending, isError, refetch, isFetching } = useOrders();
+  const { data, isPending, isError, refetch } = useOrders();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -46,20 +46,20 @@ export default function OrdersPage() {
           No se pudieron cargar los pedidos.
         </p>
 
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => refetch()}
-          className="text-sm font-medium underline underline-offset-4"
         >
           Reintentar
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Pedidos
@@ -69,16 +69,12 @@ export default function OrdersPage() {
           </p>
         </div>
 
-        <Button onClick={() => navigate("/orders/new")}>
-          <Plus />
-          Nueva orden
-        </Button>
-
-        {isFetching && (
-          <span className="text-xs text-muted-foreground">
-            Actualizando...
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-3">
+          <Button onClick={() => navigate("/orders/new")}>
+            <Plus />
+            Nueva orden
+          </Button>
+        </div>
       </header>
 
       <OrdersBoard

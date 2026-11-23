@@ -2,7 +2,6 @@ import type { OrderDetail } from "../api/orders-api";
 import type { OrderPaymentTotals } from "../utils/order-detail-utils";
 import {
   formatCurrency,
-  paymentStatusConfig,
 } from "../utils/order-detail-utils";
 
 interface OrderPaymentSummaryProps {
