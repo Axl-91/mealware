@@ -1,6 +1,7 @@
 import {
   ORDER_STATUSES,
   ORDER_TYPES,
+  type CreateOrderInput,
   type CreatePaymentInput,
   type CreateRefundInput,
 } from "@mealware/shared";
@@ -76,6 +77,10 @@ export interface CreateRefundResponse {
   refund: OrderRefund;
 }
 
+export interface CreateOrderResponse {
+  order: OrderDetail;
+}
+
 export const getOrders = () => apiRequest<GetOrdersResponse>("/orders");
 
 export const getOrderById = (id: string) =>
@@ -95,6 +100,12 @@ export const createPayment = (orderId: string, data: CreatePaymentInput) =>
 
 export const createRefund = (paymentId: string, data: CreateRefundInput) =>
   apiRequest<CreateRefundResponse>(`/payments/${paymentId}/refunds`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const createOrder = (data: CreateOrderInput) =>
+  apiRequest<CreateOrderResponse>("/orders", {
     method: "POST",
     body: JSON.stringify(data),
   });

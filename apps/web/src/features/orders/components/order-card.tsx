@@ -35,62 +35,52 @@ const orderStatusColors = {
   CANCELLED: "border-t-red-500",
 } as const;
 
-function getElapsedTime(createdAt: string): string {
+function getElapsedTime(createdAt: string) {
   const createdDate = new Date(createdAt);
   const now = new Date();
 
-  const elapsedMilliseconds = Math.max(
-    0,
-    now.getTime() - createdDate.getTime(),
-  );
-
-  const elapsedMinutes = Math.floor(elapsedMilliseconds / 60_000);
-  const time = new Intl.DateTimeFormat("es-AR", {
+  const timeFormatter = new Intl.DateTimeFormat("es-AR", {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(createdDate);
+  });
 
-  const isSameDay =
+  const dateTimeFormatter = new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const isToday =
     createdDate.getFullYear() === now.getFullYear() &&
     createdDate.getMonth() === now.getMonth() &&
     createdDate.getDate() === now.getDate();
 
-  if (isSameDay) {
-    let elapsed: string;
-
-    if (elapsedMinutes < 1) {
-      elapsed = "Hace menos de 1 min";
-    } else if (elapsedMinutes < 60) {
-      elapsed = `Hace ${elapsedMinutes} min`;
-    } else {
-      const hours = Math.floor(elapsedMinutes / 60);
-      const minutes = elapsedMinutes % 60;
-
-      elapsed =
-        minutes > 0 ? `Hace ${hours} h ${minutes} min` : `Hace ${hours} h`;
-    }
-
-    return `${elapsed} · ${time}`;
+  if (!isToday) {
+    return dateTimeFormatter.format(createdDate);
   }
 
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const elapsedMinutes = Math.floor(
+    (now.getTime() - createdDate.getTime()) / 60_000,
+  );
 
-  const isYesterday =
-    createdDate.getFullYear() === yesterday.getFullYear() &&
-    createdDate.getMonth() === yesterday.getMonth() &&
-    createdDate.getDate() === yesterday.getDate();
+  let elapsedText: string;
 
-  if (isYesterday) {
-    return `Ayer · ${time}`;
+  if (elapsedMinutes < 1) {
+    elapsedText = "Ahora";
+  } else if (elapsedMinutes < 60) {
+    elapsedText = `${elapsedMinutes} min`;
+  } else {
+    const hours = Math.floor(elapsedMinutes / 60);
+    const minutes = elapsedMinutes % 60;
+
+    elapsedText =
+      minutes === 0
+        ? `${hours} h`
+        : `${hours} h ${minutes} min`;
   }
 
-  const date = new Intl.DateTimeFormat("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-  }).format(createdDate);
-
-  return `${date} · ${time}`;
+  return `${elapsedText} · ${timeFormatter.format(createdDate)}`;
 }
 
 function formatCurrency(value: string): string {

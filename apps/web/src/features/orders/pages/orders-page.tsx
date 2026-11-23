@@ -4,10 +4,14 @@ import { useOrders } from "../hooks/use-orders";
 import OrdersBoard from "../components/orders-board";
 import CancelledOrders from "../components/cancelled-orders";
 import OrderDetailDialog from "../components/order-detail-dialog";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router";
 
 export default function OrdersPage() {
   const { data, isPending, isError, refetch, isFetching } = useOrders();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const orders = data?.orders ?? [];
 
@@ -64,6 +68,11 @@ export default function OrdersPage() {
             Gestioná los pedidos del restaurante.
           </p>
         </div>
+
+        <Button onClick={() => navigate("/orders/new")}>
+          <Plus />
+          Nueva orden
+        </Button>
 
         {isFetching && (
           <span className="text-xs text-muted-foreground">

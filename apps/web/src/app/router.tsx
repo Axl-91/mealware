@@ -13,6 +13,7 @@ import DashboardPage from "@/features/dashboard/pages/dashboard-page";
 import CategoriesPage from "@/features/categories/pages/categories-page";
 import MenuItemsPage from "@/features/menu-items/pages/menu-items-page";
 import OrdersPage from "@/features/orders/pages/orders-page";
+import CreateOrderPage from "@/features/orders/pages/create-order-page";
 
 export const router = createBrowserRouter([
   {
@@ -42,7 +43,16 @@ export const router = createBrowserRouter([
           },
           {
             path: "orders",
-            element: <OrdersPage />,
+            children: [
+              {
+                index: true,
+                element: <OrdersPage />,
+              },
+              {
+                path: "new",
+                element: <CreateOrderPage />,
+              },
+            ],
           },
           {
             path: "menu-items",
