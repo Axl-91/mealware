@@ -3,8 +3,6 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -55,35 +53,48 @@ export function OrdersByTypeChart({
         </CardDescription>
       </CardHeader>
 
+
       <CardContent>
         {isLoading ? (
           <Skeleton className="h-[280px] w-full" />
         ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto h-[280px] w-full"
-          >
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent nameKey="type" />}
-              />
+          <div className="space-y-3">
+            <ChartContainer
+              config={chartConfig}
+              className="mx-auto h-[240px] w-full"
+            >
+              <PieChart>
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent nameKey="type" />}
+                />
 
-              <Pie
-                data={chartData}
-                dataKey="total"
-                nameKey="type"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={3}
-                strokeWidth={2}
-              />
+                <Pie
+                  data={chartData}
+                  dataKey="total"
+                  nameKey="type"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={3}
+                  strokeWidth={2}
+                />
+              </PieChart>
+            </ChartContainer>
 
-              <ChartLegend
-                content={<ChartLegendContent nameKey="type" />}
-              />
-            </PieChart>
-          </ChartContainer>
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+              {Object.entries(chartConfig).map(([key, config]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span
+                    className="size-3 rounded-sm"
+                    style={{ backgroundColor: config.color }}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {config.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
