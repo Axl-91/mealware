@@ -15,6 +15,7 @@ import MenuItemsPage from "@/features/menu-items/pages/menu-items-page";
 import OrdersPage from "@/features/orders/pages/orders-page";
 import CreateOrderPage from "@/features/orders/pages/create-order-page";
 import PaymentsPage from "@/features/payments/pages/payments-page";
+import UsersPage from "@/features/users/pages/users-page";
 
 export const router = createBrowserRouter([
   {
@@ -71,8 +72,17 @@ export const router = createBrowserRouter([
             element: <AdminRoute />,
             children: [
               {
-                path: "health",
-                element: <HealthPage />,
+                element: <AdminRoute />,
+                children: [
+                  {
+                    path: "health",
+                    element: <HealthPage />,
+                  },
+                  {
+                    path: "users",
+                    element: <UsersPage />,
+                  },
+                ],
               },
             ],
           },
