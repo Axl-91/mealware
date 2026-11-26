@@ -7,6 +7,7 @@ import {
   getPaymentsByOrderController,
   createRefundController,
   getRefundsByPaymentController,
+  getPaymentsController,
 } from "../controllers/payments.controller.js";
 
 export const paymentsRoutes: FastifyPluginAsync = async (app) => {
@@ -17,6 +18,9 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   const refundsAccess = {
     preHandler: [authenticate, authorize(...REFUNDS_ROLES)],
   };
+
+  // GET /payments - List payment movements (ADMIN and EMPLOYEE)
+  app.get("/payments", paymentsAccess, getPaymentsController);
 
   // POST /orders/:id/payments - Create payment (ADMIN and EMPLOYEE)
   app.post<{ Params: { id: string } }>(

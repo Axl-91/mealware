@@ -1,6 +1,8 @@
 import type { CreatePaymentInput, CreateRefundInput } from "@mealware/shared";
 import { sql } from "kysely";
 import { db } from "../database/database.js";
+import { getDateRange } from "../utils/date-range.js";
+import type { DatePeriod } from "../utils/date-range.js";
 
 const toCents = (amount: string | number): number => {
   return Math.round(Number(amount) * 100);
@@ -135,7 +137,6 @@ export const createRefund = async ({
   amount,
 }: CreateRefundRepositoryInput) => {
   return db.transaction().execute(async (trx) => {
-    // Get the order ID first. The payment is locked after the order.
     const paymentReference = await trx
       .selectFrom("payments")
       .select(["id", "order_id"])
@@ -183,7 +184,6 @@ export const createRefund = async ({
       .executeTakeFirstOrThrow();
 
     const refundableCents = toCents(payment.amount) - toCents(refundsTotal);
-
     const amountCents = Math.round(amount * 100);
 
     if (amountCents > refundableCents) {
@@ -239,5 +239,181 @@ export const getRefundsByPayment = async ({
   return {
     status: "found" as const,
     refunds,
+  };
+};
+
+interface GetPaymentsPaginatedInput {
+  restaurantId: string;
+  page: number;
+  limit: number;
+  period: DatePeriod;
+  method?: CreatePaymentInput["method"];
+  orderNumber?: number;
+}
+
+type MovementQueryFilters = Omit<GetPaymentsPaginatedInput, "page" | "limit">;
+
+const buildMovementsQuery = ({
+  restaurantId,
+  period,
+  method,
+  orderNumber,
+}: MovementQueryFilters) => {
+  const { startDate, endDate } = getDateRange(period);
+
+  let paymentsQuery = db
+    .selectFrom("payments")
+    .innerJoin("orders", (join) =>
+      join
+        .onRef("orders.id", "=", "payments.order_id")
+        .onRef("orders.restaurant_id", "=", "payments.restaurant_id"),
+    )
+    .select([
+      "payments.id as id",
+      sql<"PAYMENT" | "REFUND">`'PAYMENT'`.as("type"),
+      "payments.order_id as order_id",
+      "orders.order_number as order_number",
+      "payments.method as method",
+      sql<string>`payments.amount::text`.as("amount"),
+      "payments.created_at as created_at",
+      sql<string | null>`NULL`.as("payment_id"),
+    ])
+    .where("payments.restaurant_id", "=", restaurantId);
+
+  let refundsQuery = db
+    .selectFrom("refunds")
+    .innerJoin("payments", (join) =>
+      join
+        .onRef("payments.id", "=", "refunds.payment_id")
+        .onRef("payments.restaurant_id", "=", "refunds.restaurant_id"),
+    )
+    .innerJoin("orders", (join) =>
+      join
+        .onRef("orders.id", "=", "payments.order_id")
+        .onRef("orders.restaurant_id", "=", "payments.restaurant_id"),
+    )
+    .select([
+      "refunds.id as id",
+      sql<"PAYMENT" | "REFUND">`'REFUND'`.as("type"),
+      "payments.order_id as order_id",
+      "orders.order_number as order_number",
+      "payments.method as method",
+      sql<string>`(-refunds.amount)::text`.as("amount"),
+      "refunds.created_at as created_at",
+      sql<string | null>`refunds.payment_id`.as("payment_id"),
+    ])
+    .where("refunds.restaurant_id", "=", restaurantId);
+
+  if (startDate) {
+    paymentsQuery = paymentsQuery.where("payments.created_at", ">=", startDate);
+    refundsQuery = refundsQuery.where("refunds.created_at", ">=", startDate);
+  }
+
+  if (endDate) {
+    paymentsQuery = paymentsQuery.where("payments.created_at", "<", endDate);
+    refundsQuery = refundsQuery.where("refunds.created_at", "<", endDate);
+  }
+
+  if (method) {
+    paymentsQuery = paymentsQuery.where("payments.method", "=", method);
+    refundsQuery = refundsQuery.where("payments.method", "=", method);
+  }
+
+  if (orderNumber !== undefined) {
+    paymentsQuery = paymentsQuery.where(
+      "orders.order_number",
+      "=",
+      orderNumber,
+    );
+    refundsQuery = refundsQuery.where("orders.order_number", "=", orderNumber);
+  }
+
+  return paymentsQuery.unionAll(refundsQuery);
+};
+
+const getMovementsSummary = async (filters: MovementQueryFilters) => {
+  return db
+    .with("movements", () => buildMovementsQuery(filters))
+    .selectFrom("movements")
+    .select([
+      sql<string>`
+        COALESCE(
+          SUM(CASE WHEN type = 'PAYMENT' THEN amount::numeric ELSE 0 END),
+          0
+        )::text
+      `.as("total_received"),
+      sql<string>`
+        COALESCE(
+          SUM(CASE WHEN type = 'REFUND' THEN ABS(amount::numeric) ELSE 0 END),
+          0
+        )::text
+      `.as("total_refunded"),
+      sql<string>`
+        COALESCE(SUM(amount::numeric), 0)::text
+      `.as("net_total"),
+    ])
+    .executeTakeFirstOrThrow();
+};
+
+const getMovementsCount = async (filters: MovementQueryFilters) => {
+  const result = await db
+    .with("movements", () => buildMovementsQuery(filters))
+    .selectFrom("movements")
+    .select((eb) => eb.fn.countAll<number>().as("total"))
+    .executeTakeFirstOrThrow();
+
+  return Number(result.total);
+};
+
+const getMovementsPaginated = async ({
+  filters,
+  limit,
+  offset,
+}: {
+  filters: MovementQueryFilters;
+  limit: number;
+  offset: number;
+}) => {
+  return db
+    .with("movements", () => buildMovementsQuery(filters))
+    .selectFrom("movements")
+    .selectAll()
+    .orderBy("created_at", "desc")
+    .orderBy("id", "desc")
+    .limit(limit)
+    .offset(offset)
+    .execute();
+};
+
+export const getPaymentsPaginated = async ({
+  page,
+  limit,
+  ...filters
+}: GetPaymentsPaginatedInput) => {
+  const offset = (page - 1) * limit;
+
+  const [movements, summary, total] = await Promise.all([
+    getMovementsPaginated({
+      filters,
+      limit,
+      offset,
+    }),
+    getMovementsSummary(filters),
+    getMovementsCount(filters),
+  ]);
+
+  return {
+    movements,
+    summary: {
+      totalReceived: summary.total_received,
+      totalRefunded: summary.total_refunded,
+      netTotal: summary.net_total,
+    },
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
   };
 };

@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createPaymentSchema, createRefundSchema } from "@mealware/shared";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import * as paymentsService from "../services/payments.service.js";
 import { conflict, notFound, validationError } from "../utils/http-errors.js";
 
@@ -11,6 +11,16 @@ interface OrderParams {
 interface PaymentParams {
   id: string;
 }
+
+const getPaymentsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  period: z
+    .enum(["today", "yesterday", "last_7_days", "last_30_days", "all"])
+    .default("today"),
+  method: z.enum(["CASH", "DEBIT_CARD", "CREDIT_CARD", "TRANSFER"]).optional(),
+  orderNumber: z.coerce.number().int().positive().optional(),
+});
 
 const orderNotFound = (reply: FastifyReply) => {
   return notFound(reply, "ORDER_NOT_FOUND", "Order not found");
@@ -168,4 +178,26 @@ export const getRefundsByPaymentController = async (
   return reply.status(200).send({
     refunds: result.refunds,
   });
+};
+
+export const getPaymentsController = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
+  try {
+    const query = getPaymentsQuerySchema.parse(request.query);
+
+    const result = await paymentsService.getPaymentsPaginated({
+      ...query,
+      restaurantId: request.user.restaurantId,
+    });
+
+    return reply.code(200).send(result);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return validationError(reply, error);
+    }
+
+    throw error;
+  }
 };

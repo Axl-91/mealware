@@ -1,5 +1,6 @@
 import type { CreatePaymentInput, CreateRefundInput } from "@mealware/shared";
 import * as paymentsRepository from "../repositories/payments.repository.js";
+import { DatePeriod } from "../utils/date-range.js";
 
 interface CreatePaymentServiceInput extends CreatePaymentInput {
   orderId: string;
@@ -21,6 +22,15 @@ interface CreateRefundServiceInput extends CreateRefundInput {
 interface GetRefundsByPaymentServiceInput {
   paymentId: string;
   restaurantId: string;
+}
+
+interface GetPaymentsPaginatedServiceInput {
+  restaurantId: string;
+  page: number;
+  limit: number;
+  period: DatePeriod;
+  method?: CreatePaymentInput["method"];
+  orderNumber?: number;
 }
 
 export const createPayment = async ({
@@ -69,4 +79,10 @@ export const getRefundsByPayment = async ({
     paymentId,
     restaurantId,
   });
+};
+
+export const getPaymentsPaginated = async (
+  input: GetPaymentsPaginatedServiceInput,
+) => {
+  return paymentsRepository.getPaymentsPaginated(input);
 };
