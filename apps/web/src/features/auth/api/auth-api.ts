@@ -8,6 +8,8 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface LoginRequest {

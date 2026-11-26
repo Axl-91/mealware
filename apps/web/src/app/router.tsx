@@ -16,6 +16,7 @@ import OrdersPage from "@/features/orders/pages/orders-page";
 import CreateOrderPage from "@/features/orders/pages/create-order-page";
 import PaymentsPage from "@/features/payments/pages/payments-page";
 import UsersPage from "@/features/users/pages/users-page";
+import AccountPage from "@/features/account/pages/account-page";
 
 export const router = createBrowserRouter([
   {
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
             path: "payments",
             element: <PaymentsPage />,
           },
+          { path: "account", element: <AccountPage /> },
           {
             element: <AdminRoute />,
             children: [
