@@ -14,6 +14,7 @@ import CategoriesPage from "@/features/categories/pages/categories-page";
 import MenuItemsPage from "@/features/menu-items/pages/menu-items-page";
 import OrdersPage from "@/features/orders/pages/orders-page";
 import CreateOrderPage from "@/features/orders/pages/create-order-page";
+import PaymentsPage from "@/features/payments/pages/payments-page";
 
 export const router = createBrowserRouter([
   {
@@ -61,6 +62,10 @@ export const router = createBrowserRouter([
           {
             path: "categories",
             element: <CategoriesPage />,
+          },
+          {
+            path: "payments",
+            element: <PaymentsPage />,
           },
           {
             element: <AdminRoute />,
