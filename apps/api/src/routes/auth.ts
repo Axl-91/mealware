@@ -26,6 +26,8 @@ const userSchema = z.object({
   name: z.string(),
   email: z.email(),
   role: z.enum(["ADMIN", "EMPLOYEE"]),
+  created_at: z.date(),
+  updated_at: z.date(),
 });
 
 const meSchema = z.object({

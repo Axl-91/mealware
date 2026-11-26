@@ -19,7 +19,7 @@ export const getUserByEmail = async (email: string) => {
 export const getUserById = async (userId: string, restaurantId: string) => {
   return db
     .selectFrom("users")
-    .select(["id", "name", "email", "role"])
+    .select(["id", "name", "email", "role", "created_at", "updated_at"])
     .where("id", "=", userId)
     .where("restaurant_id", "=", restaurantId)
     .where("is_active", "=", true)
