@@ -38,6 +38,9 @@ export function useUpdateOrderStatus() {
       queryClient.invalidateQueries({
         queryKey: ORDERS_QUERY_KEY,
       });
+      queryClient.invalidateQueries({
+        queryKey: ["dashboard"],
+      });
     },
   });
 }
@@ -57,6 +60,9 @@ export function useCreatePayment() {
       queryClient.invalidateQueries({
         queryKey: ORDERS_QUERY_KEY,
       });
+      queryClient.invalidateQueries({
+        queryKey: ["dashboard"],
+      });
     },
   });
 }
@@ -75,6 +81,9 @@ export function useCreateRefund() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ORDERS_QUERY_KEY,
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["dashboard"],
       });
     },
   });
