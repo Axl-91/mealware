@@ -50,7 +50,7 @@ const navigation: NavigationGroup[] = [
     title: "Administración",
     items: [
       { title: "Pagos", url: "/payments", icon: CreditCard },
-      { title: "Usuarios", url: "/users", icon: Users },
+      { title: "Usuarios", url: "/users", icon: Users, adminOnly: true },
       {
         title: "Estado del sistema",
         url: "/health",
