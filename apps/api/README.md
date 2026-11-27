@@ -88,7 +88,18 @@ Documentation coverage is currently partial and will be expanded as the API evol
 | GET | `/api/v1/auth/me` | Get the authenticated user |
 | POST | `/api/v1/auth/logout` | Log out the current user |
 
-Authentication uses JWT stored in an HTTP-only cookie.
+Authentication uses JWT stored in an HTTP-only cookie named `mealware_token`.
+
+The cookie has a one-hour lifetime, uses `SameSite=Lax`, and is marked `Secure` in production.
+
+The `/auth/me` endpoint returns the authenticated user's basic information:
+
+- ID
+- Name
+- Email
+- Role
+- Account creation date
+- Last update date
 
 ### Users
 
@@ -103,6 +114,10 @@ All user management endpoints require the `ADMIN` role.
 | DELETE | `/api/v1/users/:id` | Deactivate a user |
 
 Users belong to a restaurant. All user management operations are scoped to the authenticated user's restaurant.
+
+User deactivation is a soft delete. Deactivated users are excluded from the active user listing.
+
+Passwords are never exposed through user endpoints.
 
 ### Categories
 
@@ -136,13 +151,13 @@ All authenticated users can view menu items. Only users with the `ADMIN` role ca
 
 Menu item names must be unique within each restaurant, regardless of letter casing.
 
-Menu items support availability management independently of activation status.
+Menu items have separate activation and availability states.
 
 ### Orders
 
 Orders belong to a restaurant and contain one or more menu items.
 
-All authenticated users can create, view, update, and change the status of orders.
+All authenticated users can create, view, update, and change the status of orders, subject to the business rules below.
 
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
@@ -173,9 +188,20 @@ PREPARING → READY
 PREPARING → CANCELLED
 
 READY     → COMPLETED
+READY     → CANCELLED
 ```
 
 `COMPLETED` and `CANCELLED` are terminal states.
+
+An order can only be cancelled when all its payments have been fully refunded.
+
+Orders in `READY` and `COMPLETED` states include calculated payment information:
+
+- `UNPAID`: No outstanding amount has been paid.
+- `PARTIALLY_PAID`: The order has received partial payment.
+- `PAID`: The outstanding balance has been fully paid.
+
+The order listing always includes active orders (`PENDING`, `PREPARING`, and `READY`). Completed and cancelled orders remain visible for 12 hours after their last update.
 
 ### Payments
 
@@ -187,6 +213,7 @@ Both `ADMIN` and `EMPLOYEE` users can register and view payments.
 | ------ | -------- | ----------- |
 | POST | `/api/v1/orders/:id/payments` | Register a payment for an order |
 | GET | `/api/v1/orders/:id/payments` | List payments for an order |
+| GET | `/api/v1/payments` | List paginated payment and refund movements |
 
 Supported payment methods:
 
@@ -198,6 +225,26 @@ Supported payment methods:
 Payments can only be registered for orders with status `READY` or `COMPLETED`.
 
 The API prevents payments from exceeding the outstanding order balance.
+
+The general payments listing supports filtering by:
+
+- `period`
+- `method`
+- `orderNumber`
+
+It also supports pagination through `page` and `limit`.
+
+Supported periods:
+
+- `today`
+- `yesterday`
+- `last_7_days`
+- `last_30_days`
+- `all`
+
+The listing combines payments and refunds into a unified chronological history. Payments are represented as positive movements and refunds as negative movements.
+
+The financial summary is calculated over all matching movements, independently of the current pagination page.
 
 ### Refunds
 
@@ -214,6 +261,27 @@ Refunds increase the outstanding balance of the associated order. Additional pay
 
 Payments and refunds are retained as financial records and are not deleted.
 
+## Authorization
+
+Access to API resources is controlled through authenticated user roles and restaurant ownership.
+
+| Feature | ADMIN | EMPLOYEE |
+| ------- | :---: | :---: |
+| Dashboard | Yes | Yes |
+| Orders | Yes | Yes |
+| Categories | Yes | Yes |
+| View menu items | Yes | Yes |
+| Manage menu items | Yes | No |
+| Payments | Yes | Yes |
+| Refunds | Yes | No |
+| User management | Yes | No |
+| Health | Yes | No |
+| Account information | Yes | Yes |
+
+All restaurant-specific operations are scoped to the restaurant associated with the authenticated user.
+
+Category updates and deactivation additionally require ownership of the category.
+
 ## Authentication
 
 The API uses JWT-based authentication with HTTP-only cookies.
@@ -225,6 +293,8 @@ The authentication flow:
 3. A JWT is generated and stored in a cookie.
 4. Protected endpoints authenticate requests using that cookie.
 5. Logout clears the authentication cookie.
+
+The JWT contains the authenticated user's ID, restaurant ID, and role.
 
 Passwords are hashed using Argon2id.
 
@@ -253,11 +323,11 @@ pnpm --filter @mealware/api db:migrate
 # Roll back the latest migration
 pnpm --filter @mealware/api db:rollback
 
-# Run initial seed
-pnpm --filter @mealware/api db:seed
+# Run demo seed
+pnpm --filter @mealware/api db:seed:demo
 ```
 
-The initial seed creates a restaurant and its first administrator if they do not already exist.
+The demo seed creates initial data for an administrator's restaurant only when that restaurant does not already contain data.
 
 ## Configuration
 
@@ -347,24 +417,3 @@ pnpm --filter @mealware/api test:coverage
 ```
 
 Tests use a dedicated PostgreSQL database configured through `TEST_DATABASE_URL`.
-
-## Development Status
-
-Current backend functionality:
-
-- [x] Database connection and migrations
-- [x] Restaurant and user schema
-- [x] Authentication and authorization
-- [x] JWT cookie-based sessions
-- [x] User management
-- [x] Global categories
-- [x] Initial database seed
-- [x] Menu items API implementation
-- [x] Menu items tests
-- [x] Orders API implementation
-- [x] Orders tests
-- [x] Payments API implementation
-- [x] Refunds API implementation
-- [x] Payments and refunds tests
-- [x] OpenAPI and Swagger UI integration
-- [ ] Complete API documentation
