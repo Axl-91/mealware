@@ -26,10 +26,51 @@ Frontend application for **Mealware**, a restaurant management system. Built wit
 - Public routes for unauthenticated users.
 - Logout and session cleanup.
 
+### Dashboard
+- Overview of restaurant activity and performance.
+- Summary metrics for selected periods.
+- Charts for visualizing restaurant statistics.
+- Automatic data refresh after relevant mutations.
+
+### Orders
+- Order creation for dine-in and takeaway.
+- Kanban board organized by order status.
+- Order details with products and payment information.
+- Order status management.
+- Support for partial payments and multiple payment methods.
+- Payment refunds and payment history.
+- Automatic board refresh.
+
+### Menu Management
+- Menu category management.
+- Menu item management.
+- Active and archived categories.
+- Product availability management.
+- Category-based product organization.
+
+### Payments
+- Unified payment and refund history.
+- Payment summaries with received, refunded, and net amounts.
+- Filtering by period, payment method, and order number.
+- Paginated movement history.
+- Access to related order details.
+
+### User Management
+- User creation and profile editing.
+- User deactivation.
+- Role-based access control.
+- Restricted to administrators.
+
+### Account
+- View personal account information.
+- Display account creation and last update dates.
+- Available to all authenticated users.
+
 ### System Health
 - API health monitoring.
 - Database readiness monitoring.
 - Automatic status refresh every 30 seconds.
+- Restricted to administrators.
 
 ### Theme Support
 - Light and dark themes.
@@ -41,6 +82,7 @@ Frontend application for **Mealware**, a restaurant management system. Built wit
 ### Routing
 - Separate layouts for authentication and application pages.
 - Protected and public route handling.
+- Role-based route protection.
 - Custom 404 page.
 
 ## Project Structure
@@ -61,15 +103,15 @@ src/
 │   │   └── theme-toggle.tsx
 │   └── ui/
 ├── features/
+│   ├── account/
 │   ├── auth/
-│   │   ├── api/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   └── pages/
-│   └── health/
-│       ├── api/
-│       ├── hooks/
-│       └── pages/
+│   ├── categories/
+│   ├── dashboard/
+│   ├── health/
+│   ├── menu-items/
+│   ├── orders/
+│   ├── payments/
+│   └── users/
 ├── lib/
 │   ├── api.ts
 │   └── utils.ts
